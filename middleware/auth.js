@@ -1,3 +1,4 @@
+// middleware/auth.js - Updated middleware
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const UserRole = require('../models/UserRole');
@@ -25,7 +26,7 @@ exports.protect = async (req, res, next) => {
     
     try {
       // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
       
       // Get user from the token
       req.user = await User.findById(decoded.id);
@@ -39,6 +40,7 @@ exports.protect = async (req, res, next) => {
       
       next();
     } catch (error) {
+      console.error('JWT verification error:', error);
       return res.status(401).json({
         success: false,
         error: 'Not authorized to access this route'
@@ -67,7 +69,7 @@ exports.authorize = (...roles) => {
       if (!hasRole) {
         return res.status(403).json({
           success: false,
-          error: 'Not authorized to access this route'
+          error: `Access denied. Required roles: ${roles.join(', ')}`
         });
       }
       
@@ -87,6 +89,13 @@ exports.checkPermission = (resourceType, action) => {
         user: req.user.id,
         is_active: true
       });
+      
+      if (userRoles.length === 0) {
+        return res.status(403).json({
+          success: false,
+          error: 'User has no active roles'
+        });
+      }
       
       const roleIds = userRoles.map(userRole => userRole.role);
       
@@ -114,6 +123,7 @@ exports.checkPermission = (resourceType, action) => {
       
       next();
     } catch (error) {
+      console.error('Permission check error:', error);
       next(error);
     }
   };
