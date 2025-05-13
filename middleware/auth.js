@@ -1,4 +1,3 @@
-// middleware/auth.js - Updated middleware
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const UserRole = require('../models/UserRole');
@@ -26,7 +25,8 @@ exports.protect = async (req, res, next) => {
     
     try {
       // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
+      const secret = process.env.JWT_SECRET || 'your_secure_jwt_secret_key';
+      const decoded = jwt.verify(token, secret);
       
       // Get user from the token
       req.user = await User.findById(decoded.id);
@@ -38,9 +38,26 @@ exports.protect = async (req, res, next) => {
         });
       }
       
+      // Check if user is active
+      if (!req.user.is_active) {
+        return res.status(401).json({
+          success: false,
+          error: 'User account is deactivated'
+        });
+      }
+      
       next();
     } catch (error) {
       console.error('JWT verification error:', error);
+      
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({
+          success: false,
+          error: 'Token expired',
+          isExpired: true
+        });
+      }
+      
       return res.status(401).json({
         success: false,
         error: 'Not authorized to access this route'
@@ -127,4 +144,21 @@ exports.checkPermission = (resourceType, action) => {
       next(error);
     }
   };
+};
+
+// Require email verification
+exports.requireVerifiedEmail = async (req, res, next) => {
+  try {
+    if (!req.user.is_email_verified) {
+      return res.status(403).json({
+        success: false,
+        error: 'Email verification required',
+        requiresVerification: true
+      });
+    }
+    
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
