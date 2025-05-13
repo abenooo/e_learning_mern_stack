@@ -1,3 +1,4 @@
+// routes/users.js - Updated routes
 const express = require('express');
 const { check } = require('express-validator');
 const { protect, authorize, checkPermission } = require('../middleware/auth');
@@ -47,28 +48,27 @@ router.put(
   updateUser
 );
 
-// Delete user
-router.delete('/:id', protect, authorize('super_admin', 'admin'), deleteUser);
+// Delete user (super_admin only)
+router.delete('/:id', protect, authorize('super_admin'), deleteUser);
 
 // Get user roles
 router.get('/:id/roles', protect, checkPermission('users', 'read'), getUserRoles);
 
-// Assign role to user
+// Assign role to user (super_admin only for non-student roles)
 router.post(
   '/:id/roles',
   [
     protect,
-    authorize('super_admin', 'admin'),
     check('role', 'Role ID is required').not().isEmpty()
   ],
   assignRole
 );
 
-// Remove role from user
+// Remove role from user (super_admin only)
 router.delete(
   '/:id/roles/:roleId',
   protect,
-  authorize('super_admin', 'admin'),
+  authorize('super_admin'),
   removeRole
 );
 
