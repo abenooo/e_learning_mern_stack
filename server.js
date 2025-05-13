@@ -17,15 +17,46 @@ const batchRoutes = require('./routes/batches');
 // Initialize Express app
 const app = express();
 
+// Configure CORS properly
+const corsOptions = {
+  origin: '*', // For development only, restrict in production
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+app.use(cors(corsOptions));
+
 // Middleware
-app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
+// Debug route to test basic connectivity
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'API is working' });
+});
+
+// Debug route to check roles
+app.get('/api/debug/roles', async (req, res) => {
+  try {
+    const Role = require('./models/Role');
+    const roles = await Role.find();
+    res.json({ 
+      success: true, 
+      count: roles.length, 
+      data: roles 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Routes - Make sure auth routes are registered before any middleware
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/courses', courseRoutes);
@@ -38,7 +69,7 @@ app.get('/', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Error:', err.stack);
   res.status(err.statusCode || 500).json({
     success: false,
     error: err.message || 'Server Error'
@@ -51,7 +82,7 @@ mongoose.connect(process.env.MONGODB_URI)
     console.log('Connected to MongoDB');
     
     // Start server
-    const PORT = process.env.PORT || 5000;
+    const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
