@@ -201,9 +201,7 @@ exports.getUserRoles = async (req, res, next) => {
   }
 };
 
-// @desc    Assign role to user
-// @route   POST /api/users/:id/roles
-// @access  Private/Admin
+// controllers/users.js - Updated assignRole function
 exports.assignRole = async (req, res, next) => {
   try {
     // Check for validation errors
@@ -231,6 +229,23 @@ exports.assignRole = async (req, res, next) => {
       return res.status(404).json({
         success: false,
         error: 'Role not found'
+      });
+    }
+    
+    // Check if the current user is a super_admin
+    const userRoles = await UserRole.find({ 
+      user: req.user.id,
+      is_active: true
+    }).populate('role');
+    
+    const isSuperAdmin = userRoles.some(userRole => 
+      userRole.role.name === 'super_admin'
+    );
+    
+    if (!isSuperAdmin && roleDoc.name !== 'student') {
+      return res.status(403).json({
+        success: false,
+        error: 'Only super admins can assign non-student roles'
       });
     }
     
@@ -264,7 +279,8 @@ exports.assignRole = async (req, res, next) => {
     const userRole = await UserRole.create({
       user: user._id,
       role: roleDoc._id,
-      assigned_by: req.user.id
+      assigned_by: req.user.id,
+      assigned_at: Date.now()
     });
     
     res.status(201).json({
@@ -275,7 +291,6 @@ exports.assignRole = async (req, res, next) => {
     next(error);
   }
 };
-
 // @desc    Remove role from user
 // @route   DELETE /api/users/:id/roles/:roleId
 // @access  Private/Admin
