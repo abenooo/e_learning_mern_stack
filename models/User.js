@@ -4,64 +4,63 @@ const bcrypt = require('bcryptjs');
 const UserSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: [true, 'Name is required'],
-    trim: true
+    required: [true, 'Please add a name']
   },
   email: {
     type: String,
-    required: [true, 'Email is required'],
+    required: [true, 'Please add an email'],
     unique: true,
-    trim: true,
-    lowercase: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email']
-  },
-  phone: {
-    type: String,
-    trim: true
+    match: [
+      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+      'Please add a valid email'
+    ]
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
+    required: [true, 'Please add a password'],
     minlength: 6,
     select: false
   },
-  avatar: {
-    type: String,
-    default: ''
-  },
-  initials: {
-    type: String,
-    default: function() {
-      if (this.name) {
-        return this.name.split(' ').map(n => n[0]).join('').toUpperCase();
-      }
-      return '';
-    }
+  phone: {
+    type: String
   },
   user_id_number: {
-    type: String,
-    unique: true
+    type: String
   },
   is_active: {
     type: Boolean,
     default: true
   },
+  is_email_verified: {
+    type: Boolean,
+    default: false
+  },
+  email_verification_token: String,
+  email_verification_expires: Date,
+  reset_password_token: String,
+  reset_password_expires: Date,
+  refresh_token: String,
+  refresh_token_expires: Date,
+  failed_login_attempts: {
+    type: Number,
+    default: 0
+  },
+  account_locked_until: Date,
   last_login: {
     type: Date
-  }
-}, {
-  timestamps: {
-    createdAt: 'created_at',
-    updatedAt: 'updated_at'
+  },
+  created_at: {
+    type: Date,
+    default: Date.now
   }
 });
 
-// Pre-save hook to hash password
+// Encrypt password using bcrypt
 UserSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
-    return next();
+    next();
   }
-  
+
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -71,18 +70,17 @@ UserSchema.pre('save', async function(next) {
   }
 });
 
-// Generate user ID number before saving
-UserSchema.pre('save', function(next) {
-  if (!this.user_id_number) {
-    // Generate a random 5-digit number
-    const randomNum = Math.floor(10000 + Math.random() * 90000);
-    this.user_id_number = randomNum.toString();
-  }
-  next();
+// Get user initials
+UserSchema.virtual('initials').get(function() {
+  if (!this.name) return '';
+  
+  const names = this.name.split(' ');
+  if (names.length === 1) return names[0].charAt(0).toUpperCase();
+  
+  return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase();
 });
 
-// Method to compare passwords
-// models/User.js - Update the comparePassword method
+// Match user entered password to hashed password in database
 UserSchema.methods.comparePassword = async function(enteredPassword) {
   try {
     console.log('Comparing passwords');
