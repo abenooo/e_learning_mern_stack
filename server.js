@@ -4,6 +4,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
 const path = require('path');
+const { swaggerDocs } = require('./swagger'); 
 
 // Load environment variables
 dotenv.config();
@@ -138,6 +139,8 @@ app.use((err, req, res, next) => {
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('Connected to MongoDB');
+    // Setup Swagger docs
+    swaggerDocs(app);
     
     // Start server
     const PORT = process.env.PORT || 3000;
