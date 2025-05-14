@@ -89,15 +89,26 @@ exports.register = async (req, res, next) => {
     });
     console.log(`User created with ID: ${user._id}`);
 
-    // Find student role
-    const studentRole = await Role.findOne({ name: 'student' });
-    if (!studentRole) {
-      console.error('Student role not found in database');
-      return res.status(500).json({
-        success: false,
-        error: 'Student role not found. Please contact administrator.'
-      });
-    }
+   // Find student role or create it if it doesn't exist
+let studentRole = await Role.findOne({ name: 'student' });
+if (!studentRole) {
+  console.log('Student role not found, creating it now');
+  try {
+    studentRole = await Role.create({
+      name: 'student',
+      description: 'Student enrolled in courses',
+      is_system_role: true,
+      permission_level: 10
+    });
+    console.log(`Created student role with ID: ${studentRole._id}`);
+  } catch (roleError) {
+    console.error('Error creating student role:', roleError);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to create student role. Please contact administrator.'
+    });
+  }
+}
 
     // Assign student role to user
     await UserRole.create({
