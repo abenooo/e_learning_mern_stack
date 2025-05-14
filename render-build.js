@@ -13,11 +13,16 @@ try {
     if (fs.existsSync(expressPath)) {
       console.log('Express module found, checking its files');
       const routerPath = path.join(expressPath, 'lib', 'router');
+      const routerJsPath = path.join(expressPath, 'lib', 'router.js');
       
-      if (fs.existsSync(routerPath + '.js')) {
+      if (fs.existsSync(routerJsPath)) {
         console.log('Express router.js file exists');
+      } else if (fs.existsSync(routerPath) && fs.statSync(routerPath).isDirectory()) {
+        console.log('Express router directory exists but router.js is missing');
+        console.log('Will reinstall and patch Express');
+        throw new Error('Express installation is incomplete');
       } else {
-        console.log('Express router.js file is missing, will reinstall');
+        console.log('Express router directory is missing, will reinstall');
         throw new Error('Express installation is incomplete');
       }
     } else {
@@ -55,23 +60,41 @@ try {
   }
 }
 
+// Run the Express patch script
+console.log('Running Express patch script');
+try {
+  require('./express-patch');
+} catch (error) {
+  console.error('Error running Express patch:', error.message);
+}
+
 // Verify express installation
 try {
   const expressPath = path.join('node_modules', 'express');
-  const routerPath = path.join(expressPath, 'lib', 'router.js');
+  const routerJsPath = path.join(expressPath, 'lib', 'router.js');
+  const routerDirPath = path.join(expressPath, 'lib', 'router');
   
-  if (fs.existsSync(routerPath)) {
-    console.log('Express router.js file exists after installation');
+  console.log('Checking Express installation:');
+  console.log('- Express lib directory exists:', fs.existsSync(path.join(expressPath, 'lib')));
+  
+  if (fs.existsSync(routerDirPath)) {
+    console.log('- Router directory exists');
+    console.log('- Router directory contents:', fs.readdirSync(routerDirPath));
   } else {
-    console.error('Express router.js file is still missing after installation!');
-    console.log('Contents of express/lib directory:');
-    try {
-      const libContents = fs.readdirSync(path.join(expressPath, 'lib'));
-      console.log(libContents);
-    } catch (e) {
-      console.log('Could not read express/lib directory:', e.message);
-    }
-    process.exit(1);
+    console.log('- Router directory does not exist');
+  }
+  
+  if (fs.existsSync(routerJsPath)) {
+    console.log('- router.js file exists');
+    console.log('- router.js content:', fs.readFileSync(routerJsPath, 'utf8'));
+  } else {
+    console.error('- router.js file is missing!');
+  }
+  
+  console.log('- Express lib directory contents:', fs.readdirSync(path.join(expressPath, 'lib')));
+  
+  if (!fs.existsSync(routerJsPath)) {
+    throw new Error('Express router.js file is still missing after patching');
   }
 } catch (error) {
   console.error('Error verifying express installation:', error.message);

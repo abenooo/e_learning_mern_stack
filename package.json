@@ -7,8 +7,8 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "seed": "node scripts/seed.js",
-    "build": "npm ci",
-    "clean-install": "rm -rf node_modules && rm -f package-lock.json && npm install"
+    "build": "npm ci && node express-patch.js",
+    "postinstall": "node express-patch.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
