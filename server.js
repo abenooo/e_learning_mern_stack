@@ -37,7 +37,65 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/api/test', (req, res) => {
   res.json({ message: 'API is working' });
 });
-
+// Temporary endpoint to fix the student role issue
+app.get('/api/fix-roles', async (req, res) => {
+  try {
+    const Role = require('./models/Role');
+    
+    // First, let's check if we have duplicate student roles
+    const studentRoles = await Role.find({ name: 'student' });
+    console.log('Found student roles:', studentRoles);
+    
+    if (studentRoles.length > 1) {
+      // We have duplicates, let's remove the ones that don't match our schema
+      for (const role of studentRoles) {
+        // Keep only the one that has all required fields
+        if (!role.is_system_role || !role.permission_level) {
+          console.log('Removing incomplete student role:', role._id);
+          await Role.findByIdAndDelete(role._id);
+        }
+      }
+      
+      // Check if we still have a valid student role
+      const remainingRole = await Role.findOne({ name: 'student' });
+      
+      if (!remainingRole) {
+        // If we deleted all roles, create a new valid one
+        const newRole = await Role.create({
+          name: 'student',
+          description: 'Student enrolled in courses',
+          is_system_role: true,
+          permission_level: 10
+        });
+        console.log('Created new student role:', newRole);
+      }
+    } else if (studentRoles.length === 0) {
+      // No student role exists, create one
+      const newRole = await Role.create({
+        name: 'student',
+        description: 'Student enrolled in courses',
+        is_system_role: true,
+        permission_level: 10
+      });
+      console.log('Created new student role:', newRole);
+    }
+    
+    // Get all roles after fixing
+    const allRoles = await Role.find();
+    
+    res.json({
+      success: true,
+      message: 'Roles fixed successfully',
+      roles: allRoles
+    });
+  } catch (error) {
+    console.error('Error fixing roles:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 // Debug route to check roles
 app.get('/api/debug/roles', async (req, res) => {
   try {
