@@ -50,9 +50,74 @@ const generateRefreshToken = (userId) => {
 };
 
 /**
- * Register a new user
- * @route   POST /api/auth/register
- * @access  Public
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: User's full name
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: User's email
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: User's password (min 6 characters)
+ *               phone:
+ *                 type: string
+ *                 description: User's phone number
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 accessToken:
+ *                   type: string
+ *                   description: JWT access token
+ *                 refreshToken:
+ *                   type: string
+ *                   description: JWT refresh token
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                     initials:
+ *                       type: string
+ *                     roles:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *       400:
+ *         description: Validation error or email already registered
+ *       500:
+ *         description: Server error
  */
 exports.register = async (req, res, next) => {
   try {
@@ -89,26 +154,26 @@ exports.register = async (req, res, next) => {
     });
     console.log(`User created with ID: ${user._id}`);
 
-   // Find student role or create it if it doesn't exist
-let studentRole = await Role.findOne({ name: 'student' });
-if (!studentRole) {
-  console.log('Student role not found, creating it now');
-  try {
-    studentRole = await Role.create({
-      name: 'student',
-      description: 'Student enrolled in courses',
-      is_system_role: true,
-      permission_level: 10
-    });
-    console.log(`Created student role with ID: ${studentRole._id}`);
-  } catch (roleError) {
-    console.error('Error creating student role:', roleError);
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to create student role. Please contact administrator.'
-    });
-  }
-}
+    // Find student role or create it if it doesn't exist
+    let studentRole = await Role.findOne({ name: 'student' });
+    if (!studentRole) {
+      console.log('Student role not found, creating it now');
+      try {
+        studentRole = await Role.create({
+          name: 'student',
+          description: 'Student enrolled in courses',
+          is_system_role: true,
+          permission_level: 10
+        });
+        console.log(`Created student role with ID: ${studentRole._id}`);
+      } catch (roleError) {
+        console.error('Error creating student role:', roleError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to create student role. Please contact administrator.'
+        });
+      }
+    }
 
     // Assign student role to user
     await UserRole.create({
@@ -141,7 +206,7 @@ if (!studentRole) {
     res.status(201).json({
       success: true,
       accessToken,
-      refreshToken: process.env.NODE_ENV === 'production' ? undefined : refreshToken,
+      refreshToken, // Always include the refresh token
       user: {
         id: user._id,
         name: user.name,
@@ -161,9 +226,67 @@ if (!studentRole) {
 };
 
 /**
- * Login user
- * @route   POST /api/auth/login
- * @access  Public
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Login a user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: User's email
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: User's password
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 accessToken:
+ *                   type: string
+ *                   description: JWT access token
+ *                 refreshToken:
+ *                   type: string
+ *                   description: JWT refresh token
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                     initials:
+ *                       type: string
+ *                     roles:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *       401:
+ *         description: Invalid credentials
+ *       500:
+ *         description: Server error
  */
 exports.login = async (req, res, next) => {
   try {
@@ -273,7 +396,7 @@ exports.login = async (req, res, next) => {
     res.status(200).json({
       success: true,
       accessToken,
-      refreshToken: process.env.NODE_ENV === 'production' ? undefined : refreshToken,
+      refreshToken, // Always include the refresh token
       user: {
         id: user._id,
         name: user.name,
@@ -293,9 +416,46 @@ exports.login = async (req, res, next) => {
 };
 
 /**
- * Refresh access token using refresh token
- * @route   POST /api/auth/refresh-token
- * @access  Public
+ * @swagger
+ * /auth/refresh-token:
+ *   post:
+ *     summary: Refresh access token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 description: Refresh token received during login or registration
+ *     responses:
+ *       200:
+ *         description: Token refreshed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 accessToken:
+ *                   type: string
+ *                   description: New JWT access token
+ *                 refreshToken:
+ *                   type: string
+ *                   description: New JWT refresh token
+ *       400:
+ *         description: No refresh token provided
+ *       401:
+ *         description: Invalid or expired refresh token
+ *       500:
+ *         description: Server error
  */
 exports.refreshToken = async (req, res, next) => {
   try {
@@ -367,7 +527,7 @@ exports.refreshToken = async (req, res, next) => {
     res.status(200).json({
       success: true,
       accessToken,
-      refreshToken: process.env.NODE_ENV === 'production' ? undefined : newRefreshToken
+      refreshToken: newRefreshToken // Always include the refresh token
     });
   } catch (error) {
     console.error('Refresh token error:', error);
@@ -379,9 +539,31 @@ exports.refreshToken = async (req, res, next) => {
 };
 
 /**
- * Logout user
- * @route   POST /api/auth/logout
- * @access  Private
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Logout user
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Logged out successfully
+ *       401:
+ *         description: Not authorized
+ *       500:
+ *         description: Server error
  */
 exports.logout = async (req, res, next) => {
   try {
@@ -416,9 +598,52 @@ exports.logout = async (req, res, next) => {
 };
 
 /**
- * Get current logged in user
- * @route   GET /api/auth/me
- * @access  Private
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Get current user profile
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                     initials:
+ *                       type: string
+ *                     user_id_number:
+ *                       type: string
+ *                     last_login:
+ *                       type: string
+ *                       format: date-time
+ *                     roles:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *       401:
+ *         description: Not authorized
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
  */
 exports.getMe = async (req, res, next) => {
   try {
@@ -465,9 +690,57 @@ exports.getMe = async (req, res, next) => {
 };
 
 /**
- * Change password
- * @route   PUT /api/auth/change-password
- * @access  Private
+ * @swagger
+ * /auth/change-password:
+ *   put:
+ *     summary: Change user password
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 format: password
+ *                 description: Current password
+ *               newPassword:
+ *                 type: string
+ *                 format: password
+ *                 description: New password (min 6 characters)
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Password changed successfully
+ *                 accessToken:
+ *                   type: string
+ *                   description: New JWT access token
+ *                 refreshToken:
+ *                   type: string
+ *                   description: New JWT refresh token
+ *       401:
+ *         description: Current password is incorrect
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
  */
 exports.changePassword = async (req, res, next) => {
   try {
@@ -534,7 +807,7 @@ exports.changePassword = async (req, res, next) => {
       success: true,
       message: 'Password changed successfully',
       accessToken,
-      refreshToken: process.env.NODE_ENV === 'production' ? undefined : refreshToken
+      refreshToken // Always include the refresh token
     });
   } catch (error) {
     console.error('Change password error:', error);
@@ -546,9 +819,40 @@ exports.changePassword = async (req, res, next) => {
 };
 
 /**
- * Forgot password - send reset token
- * @route   POST /api/auth/forgot-password
- * @access  Public
+ * @swagger
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Request password reset
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: User's email
+ *     responses:
+ *       200:
+ *         description: If email is registered, a reset link will be sent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: If your email is registered, you will receive a password reset link
+ *       500:
+ *         description: Server error
  */
 exports.forgotPassword = async (req, res, next) => {
   try {
@@ -613,9 +917,49 @@ exports.forgotPassword = async (req, res, next) => {
 };
 
 /**
- * Reset password
- * @route   PUT /api/auth/reset-password/:resetToken
- * @access  Public
+ * @swagger
+ * /auth/reset-password/{resetToken}:
+ *   put:
+ *     summary: Reset password with token
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: path
+ *         name: resetToken
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Password reset token
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - password
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: New password (min 6 characters)
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Password reset successful
+ *       400:
+ *         description: Invalid or expired token
+ *       500:
+ *         description: Server error
  */
 exports.resetPassword = async (req, res, next) => {
   try {
@@ -667,9 +1011,36 @@ exports.resetPassword = async (req, res, next) => {
 };
 
 /**
- * Verify email with token
- * @route   GET /api/auth/verify-email/:verificationToken
- * @access  Public
+ * @swagger
+ * /auth/verify-email/{verificationToken}:
+ *   get:
+ *     summary: Verify email with token
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: path
+ *         name: verificationToken
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Email verification token
+ *     responses:
+ *       200:
+ *         description: Email verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Email verified successfully
+ *       400:
+ *         description: Invalid or expired verification token
+ *       500:
+ *         description: Server error
  */
 exports.verifyEmail = async (req, res, next) => {
   try {
@@ -718,9 +1089,35 @@ exports.verifyEmail = async (req, res, next) => {
 };
 
 /**
- * Send verification email
- * @route   POST /api/auth/send-verification-email
- * @access  Private
+ * @swagger
+ * /auth/send-verification-email:
+ *   post:
+ *     summary: Send verification email
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Verification email sent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Verification email sent
+ *       400:
+ *         description: Email is already verified
+ *       401:
+ *         description: Not authorized
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
  */
 exports.sendVerificationEmail = async (req, res, next) => {
   try {
