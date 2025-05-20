@@ -16,13 +16,81 @@ const {
   removeInstructor
 } = require('../controllers/courses');
 
-// Get all courses
+/**
+ * @swagger
+ * /api/courses:
+ *   get:
+ *     summary: Get all courses with filtering and pagination
+ *     tags: [Courses]
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [draft, published, archived]
+ *       - in: query
+ *         name: difficulty_level
+ *         schema:
+ *           type: string
+ *           enum: [beginner, intermediate, advanced]
+ *       - in: query
+ *         name: course_type
+ *         schema:
+ *           type: string
+ *           enum: [paid, free]
+ *       - in: query
+ *         name: delivery_method
+ *         schema:
+ *           type: string
+ *           enum: [online, offline, hybrid]
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [price, duration_months, created_at]
+ *       - in: query
+ *         name: order
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ */
 router.get('/', getCourses);
 
-// Get single course
+/**
+ * @swagger
+ * /api/courses/{id}:
+ *   get:
+ *     summary: Get a single course with detailed information
+ *     tags: [Courses]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ */
 router.get('/:id', getCourse);
 
-// Create course
+/**
+ * @swagger
+ * /api/courses:
+ *   post:
+ *     summary: Create a new course
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.post(
   '/',
   [
@@ -30,30 +98,87 @@ router.post(
     checkPermission('courses', 'create'),
     check('title', 'Title is required').not().isEmpty(),
     check('description', 'Description is required').not().isEmpty(),
-    check('duration_months', 'Duration is required').isNumeric()
+    check('duration_months', 'Duration is required').isNumeric(),
+    check('price', 'Price must be a number').optional().isNumeric(),
+    check('difficulty_level', 'Invalid difficulty level')
+      .optional()
+      .isIn(['beginner', 'intermediate', 'advanced']),
+    check('status', 'Invalid status')
+      .optional()
+      .isIn(['draft', 'published', 'archived']),
+    check('course_type', 'Invalid course type')
+      .optional()
+      .isIn(['paid', 'free']),
+    check('delivery_method', 'Invalid delivery method')
+      .optional()
+      .isIn(['online', 'offline', 'hybrid'])
   ],
   createCourse
 );
 
-// Update course
+/**
+ * @swagger
+ * /api/courses/{id}:
+ *   put:
+ *     summary: Update a course
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.put(
   '/:id',
   [
     protect,
     checkPermission('courses', 'update'),
     check('title', 'Title is required').optional().not().isEmpty(),
-    check('description', 'Description is required').optional().not().isEmpty()
+    check('description', 'Description is required').optional().not().isEmpty(),
+    check('duration_months', 'Duration must be a number').optional().isNumeric(),
+    check('price', 'Price must be a number').optional().isNumeric(),
+    check('difficulty_level', 'Invalid difficulty level')
+      .optional()
+      .isIn(['beginner', 'intermediate', 'advanced']),
+    check('status', 'Invalid status')
+      .optional()
+      .isIn(['draft', 'published', 'archived']),
+    check('course_type', 'Invalid course type')
+      .optional()
+      .isIn(['paid', 'free']),
+    check('delivery_method', 'Invalid delivery method')
+      .optional()
+      .isIn(['online', 'offline', 'hybrid'])
   ],
   updateCourse
 );
 
-// Delete course
+/**
+ * @swagger
+ * /api/courses/{id}:
+ *   delete:
+ *     summary: Delete a course
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.delete('/:id', protect, checkPermission('courses', 'delete'), deleteCourse);
 
-// Get course instructors
+/**
+ * @swagger
+ * /api/courses/{id}/instructors:
+ *   get:
+ *     summary: Get course instructors
+ *     tags: [Courses]
+ */
 router.get('/:id/instructors', getCourseInstructors);
 
-// Assign instructor to course
+/**
+ * @swagger
+ * /api/courses/{id}/instructors:
+ *   post:
+ *     summary: Assign instructor to course
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.post(
   '/:id/instructors',
   [
@@ -65,7 +190,15 @@ router.post(
   assignInstructor
 );
 
-// Remove instructor from course
+/**
+ * @swagger
+ * /api/courses/{id}/instructors/{userId}:
+ *   delete:
+ *     summary: Remove instructor from course
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ */
 router.delete(
   '/:id/instructors/:userId',
   protect,
