@@ -285,18 +285,7 @@ exports.updateCourse = async (req, res, next) => {
       });
     }
     
-    // Prevent updating certain fields if course is published
-    // if (course.status === 'published') {
-    //   const restrictedFields = ['price', 'course_type', 'duration_months'];
-    //   for (const field of restrictedFields) {
-    //     if (req.body[field] !== undefined && req.body[field] !== course[field]) {
-    //       return res.status(400).json({
-    //         success: false,
-    //         error: `Cannot update ${field} for a published course`
-    //       });
-    //     }
-    //   }
-    // }
+
     
     // Update course
     course = await Course.findByIdAndUpdate(
