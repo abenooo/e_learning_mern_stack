@@ -368,12 +368,12 @@ exports.deleteCourse = async (req, res, next) => {
     }
     
     // Check if course is published
-    if (course.status === 'published') {
-      return res.status(400).json({
-        success: false,
-        error: 'Cannot delete a published course. Archive it instead.'
-      });
-    }
+    // if (course.status === 'published') {
+    //   return res.status(400).json({
+    //     success: false,
+    //     error: 'Cannot delete a published course. Archive it instead.'
+    //   });
+    // }
     
     // Delete course
     await Course.findByIdAndDelete(req.params.id);
