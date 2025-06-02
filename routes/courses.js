@@ -142,10 +142,7 @@ router.put(
       .isIn(['draft', 'published', 'archived']),
     check('course_type', 'Invalid course type')
       .optional()
-      .isIn(['paid', 'free']),
-    check('delivery_method', 'Invalid delivery method')
-      .optional()
-      .isIn(['online', 'offline', 'hybrid'])
+      .isIn(['paid', 'free'])
   ],
   updateCourse
 );
