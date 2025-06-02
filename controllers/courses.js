@@ -1,5 +1,6 @@
 const Course = require('../models/Course');
 const CourseInstructor = require('../models/CourseInstructor');
+const UserRole = require('../models/UserRole');
 const { validationResult } = require('express-validator');
 
 /**
@@ -268,7 +269,16 @@ exports.updateCourse = async (req, res, next) => {
     }
     
     // Check if user is authorized to update
-    if (course.creator.toString() !== req.user.id && !req.user.roles.includes('admin')) {
+    const userRoles = await UserRole.find({ 
+      user: req.user.id,
+      is_active: true
+    }).populate('role');
+
+    const isAdmin = userRoles.some(userRole => 
+      userRole.role.name === 'admin' || userRole.role.name === 'super_admin'
+    );
+
+    if (course.creator.toString() !== req.user.id && !isAdmin) {
       return res.status(403).json({
         success: false,
         error: 'Not authorized to update this course'
@@ -341,7 +351,16 @@ exports.deleteCourse = async (req, res, next) => {
     }
     
     // Check if user is authorized to delete
-    if (course.creator.toString() !== req.user.id && !req.user.roles.includes('admin')) {
+    const userRoles = await UserRole.find({ 
+      user: req.user.id,
+      is_active: true
+    }).populate('role');
+
+    const isAdmin = userRoles.some(userRole => 
+      userRole.role.name === 'admin' || userRole.role.name === 'super_admin'
+    );
+
+    if (course.creator.toString() !== req.user.id && !isAdmin) {
       return res.status(403).json({
         success: false,
         error: 'Not authorized to delete this course'
