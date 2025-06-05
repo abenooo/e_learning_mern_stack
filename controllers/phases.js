@@ -153,9 +153,12 @@ exports.getPhases = async (req, res, next) => {
     const sortOrder = req.query.order === 'desc' ? -1 : 1;
     const sort = { [sortField]: sortOrder };
     
-    // Execute query with pagination
+    // Execute query with pagination and populate batch_course
     const phases = await Phase.find(query)
-      .populate('batch_course', 'title')
+      .populate({
+        path: 'batch_course',
+        select: 'title _id' // Select only title and _id fields
+      })
       .sort(sort)
       .skip(startIndex)
       .limit(limit);
@@ -315,14 +318,30 @@ exports.createPhase = async (req, res, next) => {
         errors: errors.array()
       });
     }
+
+    // Validate batch_course exists
+    if (!req.body.batch_course) {
+      return res.status(400).json({
+        success: false,
+        error: 'Batch course ID is required'
+      });
+    }
     
     // Create phase
     const phase = await Phase.create(req.body);
+
+    // Populate batch_course after creation
+    const populatedPhase = await Phase.findById(phase._id)
+      .populate({
+        path: 'batch_course',
+        select: 'title _id'
+      });
+    
     console.log(`Phase created with ID: ${phase._id}`);
     
     res.status(201).json({
       success: true,
-      data: phase
+      data: populatedPhase
     });
   } catch (error) {
     console.error('Create phase error:', error);
