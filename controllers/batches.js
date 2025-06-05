@@ -79,7 +79,7 @@ const { validationResult } = require('express-validator');
 
 /**
  * @swagger
- * /api/batches:
+ * /batches:
  *   get:
  *     summary: Get all batches with filtering and pagination
  *     tags: [Batches]
@@ -120,6 +120,33 @@ const { validationResult } = require('express-validator');
  *           enum: [asc, desc]
  *           default: desc
  *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: List of batches
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: integer
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Batch'
  */
 exports.getBatches = async (req, res, next) => {
   try {
@@ -179,7 +206,7 @@ exports.getBatches = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/batches/{id}:
+ * /batches/{id}:
  *   get:
  *     summary: Get a single batch
  *     tags: [Batches]
@@ -190,6 +217,20 @@ exports.getBatches = async (req, res, next) => {
  *         schema:
  *           type: string
  *         description: Batch ID
+ *     responses:
+ *       200:
+ *         description: Batch details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Batch'
+ *       404:
+ *         description: Batch not found
  */
 exports.getBatch = async (req, res, next) => {
   try {
@@ -220,7 +261,7 @@ exports.getBatch = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/batches:
+ * /batches:
  *   post:
  *     summary: Create a new batch
  *     tags: [Batches]
@@ -270,6 +311,13 @@ exports.getBatch = async (req, res, next) => {
  *               status:
  *                 type: string
  *                 enum: [upcoming, active, completed]
+ *     responses:
+ *       201:
+ *         description: Batch created successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
  */
 exports.createBatch = async (req, res, next) => {
   try {
@@ -309,7 +357,7 @@ exports.createBatch = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/batches/{id}:
+ * /batches/{id}:
  *   put:
  *     summary: Update a batch
  *     tags: [Batches]
@@ -322,6 +370,53 @@ exports.createBatch = async (req, res, next) => {
  *         schema:
  *           type: string
  *         description: Batch ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               batch_code:
+ *                 type: string
+ *               full_name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               start_date:
+ *                 type: string
+ *                 format: date-time
+ *               end_date:
+ *                 type: string
+ *                 format: date-time
+ *               max_students:
+ *                 type: integer
+ *               meeting_link:
+ *                 type: string
+ *               flyer_url:
+ *                 type: string
+ *               schedule_url:
+ *                 type: string
+ *               class_days:
+ *                 type: string
+ *               class_start_time:
+ *                 type: string
+ *               class_end_time:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [upcoming, active, completed]
+ *     responses:
+ *       200:
+ *         description: Batch updated successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Batch not found
  */
 exports.updateBatch = async (req, res, next) => {
   try {
@@ -372,7 +467,7 @@ exports.updateBatch = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/batches/{id}:
+ * /batches/{id}:
  *   delete:
  *     summary: Delete a batch
  *     tags: [Batches]
@@ -385,6 +480,13 @@ exports.updateBatch = async (req, res, next) => {
  *         schema:
  *           type: string
  *         description: Batch ID
+ *     responses:
+ *       200:
+ *         description: Batch deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Batch not found
  */
 exports.deleteBatch = async (req, res, next) => {
   try {
@@ -416,7 +518,7 @@ exports.deleteBatch = async (req, res, next) => {
 };
 
 // @desc    Get batch courses
-// @route   GET /api/batches/:id/courses
+// @route   GET /batches/:id/courses
 // @access  Public
 exports.getBatchCourses = async (req, res, next) => {
   try {
@@ -436,7 +538,7 @@ exports.getBatchCourses = async (req, res, next) => {
 };
 
 // @desc    Add course to batch
-// @route   POST /api/batches/:id/courses
+// @route   POST /batches/:id/courses
 // @access  Private
 exports.addCourse = async (req, res, next) => {
   try {
@@ -506,7 +608,7 @@ exports.addCourse = async (req, res, next) => {
 };
 
 // @desc    Remove course from batch
-// @route   DELETE /api/batches/:id/courses/:courseId
+// @route   DELETE /batches/:id/courses/:courseId
 // @access  Private
 exports.removeCourse = async (req, res, next) => {
   try {
@@ -548,7 +650,7 @@ exports.removeCourse = async (req, res, next) => {
 };
 
 // @desc    Get batch users
-// @route   GET /api/batches/:id/users
+// @route   GET /batches/:id/users
 // @access  Private
 exports.getBatchUsers = async (req, res, next) => {
   try {
@@ -568,7 +670,7 @@ exports.getBatchUsers = async (req, res, next) => {
 };
 
 // @desc    Add user to batch
-// @route   POST /api/batches/:id/users
+// @route   POST /batches/:id/users
 // @access  Private
 exports.addUser = async (req, res, next) => {
   try {
@@ -637,7 +739,7 @@ exports.addUser = async (req, res, next) => {
 };
 
 // @desc    Remove user from batch
-// @route   DELETE /api/batches/:id/users/:userId
+// @route   DELETE /batches/:id/users/:userId
 // @access  Private
 exports.removeUser = async (req, res, next) => {
   try {
