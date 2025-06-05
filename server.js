@@ -14,6 +14,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const courseRoutes = require('./routes/courses');
 const batchRoutes = require('./routes/batches');
+const phaseRoutes = require('./routes/phases');
 
 // Initialize Express app
 const app = express();
@@ -120,6 +121,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/batches', batchRoutes);
+app.use('/api/phases', phaseRoutes);
 
 // Root route
 app.get('/', (req, res) => {
