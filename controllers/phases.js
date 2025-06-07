@@ -58,7 +58,7 @@ const { validationResult } = require('express-validator');
 
 /**
  * @swagger
- * /api/phases:
+ * /phases:
  *   get:
  *     summary: Get all phases with filtering and pagination
  *     tags: [Phases]
@@ -187,7 +187,7 @@ exports.getPhases = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/phases/{id}:
+ * /phases/{id}:
  *   get:
  *     summary: Get a single phase
  *     tags: [Phases]
@@ -242,7 +242,7 @@ exports.getPhase = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/phases:
+ * /phases:
  *   post:
  *     summary: Create a new phase
  *     tags: [Phases]
@@ -351,7 +351,7 @@ exports.createPhase = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/phases/{id}:
+ * /phases/{id}:
  *   put:
  *     summary: Update a phase
  *     tags: [Phases]
@@ -465,7 +465,7 @@ exports.updatePhase = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/phases/{id}:
+ * /phases/{id}:
  *   delete:
  *     summary: Delete a phase
  *     tags: [Phases]
