@@ -5,12 +5,13 @@ const courseRoutes = require('./courses');
 const batchRoutes = require('./batches');
 const phaseRoutes = require('./phases');
 const groupRoutes = require('./groups');
- 
+const enrollmentRoutes = require('./enrollments');
 module.exports = {
   authRoutes,
   userRoutes,
   courseRoutes,
   batchRoutes,
   phaseRoutes,
-  groupRoutes
+  groupRoutes,
+  enrollmentRoutes
 };
