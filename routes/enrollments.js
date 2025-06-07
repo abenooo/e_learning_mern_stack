@@ -51,6 +51,7 @@ const {
  *           default: 0
  *         payment_status:
  *           type: string
+ *           enum: [pending, paid, completed, waived]
  *           default: pending
  *         completion_date:
  *           type: string
@@ -67,7 +68,7 @@ const {
 
 /**
  * @swagger
- * /api/enrollments:
+ * /enrollments:
  *   get:
  *     summary: Get all enrollments with filtering and pagination
  *     tags: [Enrollments]
@@ -77,6 +78,16 @@ const {
  *         schema:
  *           type: string
  *           enum: [active, completed, dropped]
+ *       - in: query
+ *         name: enrollment_type
+ *         schema:
+ *           type: string
+ *           enum: [paid, scholarship]
+ *       - in: query
+ *         name: payment_status
+ *         schema:
+ *           type: string
+ *           enum: [pending, paid, completed, waived]
  *       - in: query
  *         name: page
  *         schema:
@@ -112,6 +123,15 @@ const {
  *                   type: integer
  *                 pagination:
  *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     total:
+ *                       type: integer
+ *                     pages:
+ *                       type: integer
  *                 data:
  *                   type: array
  *                   items:
@@ -121,7 +141,7 @@ router.get('/', protect, checkPermission('enrollments', 'read'), getEnrollments)
 
 /**
  * @swagger
- * /api/enrollments/{id}:
+ * /enrollments/{id}:
  *   get:
  *     summary: Get a single enrollment
  *     tags: [Enrollments]
@@ -148,7 +168,7 @@ router.get('/:id', protect, checkPermission('enrollments', 'read'), getEnrollmen
 
 /**
  * @swagger
- * /api/enrollments:
+ * /enrollments:
  *   post:
  *     summary: Create a new enrollment
  *     tags: [Enrollments]
@@ -173,6 +193,7 @@ router.get('/:id', protect, checkPermission('enrollments', 'read'), getEnrollmen
  *                 type: number
  *               payment_status:
  *                 type: string
+ *                 enum: [pending, paid, completed, waived]
  *     responses:
  *       201:
  *         description: Enrollment created successfully
@@ -190,14 +211,14 @@ router.post(
     check('payment_amount', 'Payment amount must be a number').optional().isNumeric(),
     check('payment_status', 'Invalid payment status')
       .optional()
-      .isIn(['pending', 'paid', 'failed'])
+      .isIn(['pending', 'paid', 'completed', 'waived'])
   ],
   createEnrollment
 );
 
 /**
  * @swagger
- * /api/enrollments/{id}:
+ * /enrollments/{id}:
  *   put:
  *     summary: Update an enrollment
  *     tags: [Enrollments]
@@ -219,7 +240,7 @@ router.post(
  *                 enum: [active, completed, dropped]
  *               payment_status:
  *                 type: string
- *                 enum: [pending, paid, failed]
+ *                 enum: [pending, paid, completed, waived]
  *               progress_percentage:
  *                 type: number
  *                 minimum: 0
@@ -238,7 +259,7 @@ router.put(
       .isIn(['active', 'completed', 'dropped']),
     check('payment_status', 'Invalid payment status')
       .optional()
-      .isIn(['pending', 'paid', 'failed']),
+      .isIn(['pending', 'paid', 'completed', 'waived']),
     check('progress_percentage', 'Progress percentage must be between 0 and 100')
       .optional()
       .isFloat({ min: 0, max: 100 })
@@ -248,7 +269,7 @@ router.put(
 
 /**
  * @swagger
- * /api/enrollments/{id}:
+ * /enrollments/{id}:
  *   delete:
  *     summary: Delete an enrollment
  *     tags: [Enrollments]
@@ -266,7 +287,7 @@ router.delete('/:id', protect, checkPermission('enrollments', 'delete'), deleteE
 
 /**
  * @swagger
- * /api/enrollments/user/{userId}:
+ * /enrollments/user/{userId}:
  *   get:
  *     summary: Get all enrollments for a user
  *     tags: [Enrollments]
@@ -289,7 +310,7 @@ router.get('/user/:userId', protect, checkPermission('enrollments', 'read'), get
 
 /**
  * @swagger
- * /api/enrollments/batch-course/{batchCourseId}:
+ * /enrollments/batch-course/{batchCourseId}:
  *   get:
  *     summary: Get all enrollments for a batch course
  *     tags: [Enrollments]
@@ -312,7 +333,7 @@ router.get('/batch-course/:batchCourseId', protect, checkPermission('enrollments
 
 /**
  * @swagger
- * /api/enrollments/{id}/progress:
+ * /enrollments/{id}/progress:
  *   patch:
  *     summary: Update enrollment progress
  *     tags: [Enrollments]
