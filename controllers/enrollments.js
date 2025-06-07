@@ -5,7 +5,7 @@ const { validationResult } = require('express-validator');
 
 /**
  * @swagger
- * /api/enrollments:
+ * enrollments:
  *   get:
  *     summary: Get all enrollments with filtering and pagination
  *     tags: [Enrollments]
@@ -118,7 +118,7 @@ exports.getEnrollments = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/enrollments/{id}:
+ * enrollments/{id}:
  *   get:
  *     summary: Get a single enrollment with detailed information
  *     tags: [Enrollments]
@@ -166,7 +166,7 @@ exports.getEnrollment = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/enrollments:
+ * enrollments:
  *   post:
  *     summary: Create a new enrollment
  *     tags: [Enrollments]
@@ -238,7 +238,7 @@ exports.createEnrollment = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/enrollments/{id}:
+ * enrollments/{id}:
  *   put:
  *     summary: Update an enrollment
  *     tags: [Enrollments]
@@ -305,7 +305,7 @@ exports.updateEnrollment = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/enrollments/{id}:
+ * enrollments/{id}:
  *   delete:
  *     summary: Delete an enrollment
  *     tags: [Enrollments]
@@ -342,7 +342,7 @@ exports.deleteEnrollment = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/enrollments/user/{userId}:
+ * enrollments/user/{userId}:
  *   get:
  *     summary: Get all enrollments for a user
  *     tags: [Enrollments]
@@ -395,7 +395,7 @@ exports.getUserEnrollments = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/enrollments/batch-course/{batchCourseId}:
+ * enrollments/batch-course/{batchCourseId}:
  *   get:
  *     summary: Get all enrollments for a batch course
  *     tags: [Enrollments]
@@ -442,7 +442,7 @@ exports.getBatchCourseEnrollments = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/enrollments/{id}/progress:
+ * enrollments/{id}/progress:
  *   patch:
  *     summary: Update enrollment progress
  *     tags: [Enrollments]
