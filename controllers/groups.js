@@ -4,7 +4,7 @@ const { validationResult } = require('express-validator');
 
 /**
  * @swagger
- * /api/groups:
+ * /groups:
  *   get:
  *     summary: Get all groups with filtering and pagination
  *     tags: [Groups]
@@ -65,7 +65,7 @@ exports.getGroups = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/groups/{id}:
+ * /groups/{id}:
  *   get:
  *     summary: Get a single group with detailed information
  *     tags: [Groups]
@@ -99,7 +99,7 @@ exports.getGroup = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/groups:
+ * /groups:
  *   post:
  *     summary: Create a new group
  *     tags: [Groups]
@@ -139,7 +139,7 @@ exports.createGroup = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/groups/{id}:
+ * /groups/{id}:
  *   put:
  *     summary: Update a group
  *     tags: [Groups]
@@ -193,7 +193,7 @@ exports.updateGroup = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/groups/{id}:
+ * /groups/{id}:
  *   delete:
  *     summary: Delete a group
  *     tags: [Groups]
@@ -229,7 +229,7 @@ exports.deleteGroup = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/groups/{id}/users:
+ * /groups/{id}/users:
  *   get:
  *     summary: Get all users in a group
  *     tags: [Groups]
@@ -270,7 +270,7 @@ exports.getGroupUsers = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/groups/{id}/users:
+ * /groups/{id}/users:
  *   post:
  *     summary: Add a user to a group
  *     tags: [Groups]
@@ -341,7 +341,7 @@ exports.addUser = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/groups/{id}/users/{userId}:
+ * /groups/{id}/users/{userId}:
  *   delete:
  *     summary: Remove a user from a group
  *     tags: [Groups]
