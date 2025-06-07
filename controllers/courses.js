@@ -5,7 +5,7 @@ const { validationResult } = require('express-validator');
 
 /**
  * @swagger
- * /api/courses:
+ * /courses:
  *   get:
  *     summary: Get all courses with filtering and pagination
  *     tags: [Courses]
@@ -123,7 +123,7 @@ exports.getCourses = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/courses/{id}:
+ * /courses/{id}:
  *   get:
  *     summary: Get a single course with detailed information
  *     tags: [Courses]
@@ -173,7 +173,7 @@ exports.getCourse = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/courses:
+ * /courses:
  *   post:
  *     summary: Create a new course
  *     tags: [Courses]
@@ -230,7 +230,7 @@ exports.createCourse = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/courses/{id}:
+ * /courses/{id}:
  *   put:
  *     summary: Update a course
  *     tags: [Courses]
@@ -311,7 +311,7 @@ exports.updateCourse = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/courses/{id}:
+ * /courses/{id}:
  *   delete:
  *     summary: Delete a course
  *     tags: [Courses]
@@ -380,7 +380,7 @@ exports.deleteCourse = async (req, res, next) => {
 
 /**
  * @swagger
- * /api/courses/{id}/instructors:
+ * /courses/{id}/instructors:
  *   get:
  *     summary: Get course instructors
  *     tags: [Courses]
