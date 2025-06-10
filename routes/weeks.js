@@ -27,9 +27,7 @@ router.post(
     checkPermission('weeks', 'create'),
     check('phase', 'Phase ID is required').not().isEmpty(),
     check('title', 'Title is required').not().isEmpty(),
-    check('order_number', 'Order number is required').isNumeric(),
-    check('start_date', 'Invalid start date').optional().isISO8601(),
-    check('end_date', 'Invalid end date').optional().isISO8601()
+    check('order_number', 'Order number is required').isNumeric()
   ],
   createWeek
 );
@@ -41,9 +39,7 @@ router.put(
     protect,
     checkPermission('weeks', 'update'),
     check('title', 'Title is required').optional().not().isEmpty(),
-    check('order_number', 'Order number must be numeric').optional().isNumeric(),
-    check('start_date', 'Invalid start date').optional().isISO8601(),
-    check('end_date', 'Invalid end date').optional().isISO8601()
+    check('order_number', 'Order number must be numeric').optional().isNumeric()
   ],
   updateWeek
 );
