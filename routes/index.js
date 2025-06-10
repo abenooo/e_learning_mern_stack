@@ -6,6 +6,13 @@ const batchRoutes = require('./batches');
 const phaseRoutes = require('./phases');
 const groupRoutes = require('./groups');
 const enrollmentRoutes = require('./enrollments');
+const weekRoutes = require('./weeks');
+const classRoutes = require('./classes');
+const classComponentRoutes = require('./classComponents');
+const videoRoutes = require('./videos');
+const checklistRoutes = require('./checklists');
+const checklistItemRoutes = require('./checklistItems');
+
 module.exports = {
   authRoutes,
   userRoutes,
@@ -13,5 +20,11 @@ module.exports = {
   batchRoutes,
   phaseRoutes,
   groupRoutes,
-  enrollmentRoutes
+  enrollmentRoutes,
+  weekRoutes,
+  classRoutes,
+  classComponentRoutes,
+  videoRoutes,
+  checklistRoutes,
+  checklistItemRoutes
 };
