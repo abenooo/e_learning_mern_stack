@@ -21,6 +21,7 @@ const { validationResult } = require('express-validator');
 exports.getWeeks = async (req, res, next) => {
   try {
     console.log('Get all weeks request received');
+    console.log('Query params:', req.query);
     
     const query = {};
     
@@ -31,6 +32,8 @@ exports.getWeeks = async (req, res, next) => {
     if (req.query.is_active !== undefined) {
       query.is_active = req.query.is_active === 'true';
     }
+    
+    console.log('MongoDB query:', query);
     
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
@@ -46,6 +49,8 @@ exports.getWeeks = async (req, res, next) => {
       .skip(startIndex)
       .limit(limit);
     
+    console.log(`Found ${weeks.length} weeks`);
+    
     const total = await Week.countDocuments(query);
     
     res.status(200).json({
@@ -60,6 +65,7 @@ exports.getWeeks = async (req, res, next) => {
       data: weeks
     });
   } catch (error) {
+    console.error('Error in getWeeks:', error);
     next(error);
   }
 };
