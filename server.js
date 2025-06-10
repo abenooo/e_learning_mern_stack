@@ -10,13 +10,7 @@ const { swaggerDocs } = require('./swagger');
 dotenv.config();
 
 // Import routes
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const courseRoutes = require('./routes/courses');
-const batchRoutes = require('./routes/batches');
-const phaseRoutes = require('./routes/phases');
-const groupRoutes = require('./routes/groups');
-const enrollmentRoutes = require('./routes/enrollments');
+const routes = require('./routes');
 
 // Initialize Express app
 const app = express();
@@ -37,95 +31,25 @@ app.use(morgan('dev'));
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Debug route to test basic connectivity
+// Debug routes
 app.get('/api/test', (req, res) => {
   res.json({ message: 'API is working' });
 });
-// Temporary endpoint to fix the student role issue
-app.get('/api/fix-roles', async (req, res) => {
-  try {
-    const Role = require('./models/Role');
-    
-    // First, let's check if we have duplicate student roles
-    const studentRoles = await Role.find({ name: 'student' });
-    console.log('Found student roles:', studentRoles);
-    
-    if (studentRoles.length > 1) {
-      // We have duplicates, let's remove the ones that don't match our schema
-      for (const role of studentRoles) {
-        // Keep only the one that has all required fields
-        if (!role.is_system_role || !role.permission_level) {
-          console.log('Removing incomplete student role:', role._id);
-          await Role.findByIdAndDelete(role._id);
-        }
-      }
-      
-      // Check if we still have a valid student role
-      const remainingRole = await Role.findOne({ name: 'student' });
-      
-      if (!remainingRole) {
-        // If we deleted all roles, create a new valid one
-        const newRole = await Role.create({
-          name: 'student',
-          description: 'Student enrolled in courses',
-          is_system_role: true,
-          permission_level: 10
-        });
-        console.log('Created new student role:', newRole);
-      }
-    } else if (studentRoles.length === 0) {
-      // No student role exists, create one
-      const newRole = await Role.create({
-        name: 'student',
-        description: 'Student enrolled in courses',
-        is_system_role: true,
-        permission_level: 10
-      });
-      console.log('Created new student role:', newRole);
-    }
-    
-    // Get all roles after fixing
-    const allRoles = await Role.find();
-    
-    res.json({
-      success: true,
-      message: 'Roles fixed successfully',
-      roles: allRoles
-    });
-  } catch (error) {
-    console.error('Error fixing roles:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-// Debug route to check roles
-app.get('/api/debug/roles', async (req, res) => {
-  try {
-    const Role = require('./models/Role');
-    const roles = await Role.find();
-    res.json({ 
-      success: true, 
-      count: roles.length, 
-      data: roles 
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
-  }
-});
 
-// Routes - Make sure auth routes are registered before any middleware
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/courses', courseRoutes);
-app.use('/api/batches', batchRoutes);
-app.use('/api/phases', phaseRoutes);
-app.use('/api/groups', groupRoutes);
-app.use('/api/enrollments', enrollmentRoutes);
+// Routes
+app.use('/api/auth', routes.authRoutes);
+app.use('/api/users', routes.userRoutes);
+app.use('/api/courses', routes.courseRoutes);
+app.use('/api/batches', routes.batchRoutes);
+app.use('/api/phases', routes.phaseRoutes);
+app.use('/api/groups', routes.groupRoutes);
+app.use('/api/enrollments', routes.enrollmentRoutes);
+app.use('/api/weeks', routes.weekRoutes);
+app.use('/api/classes', routes.classRoutes);
+app.use('/api/class-components', routes.classComponentRoutes);
+app.use('/api/videos', routes.videoRoutes);
+app.use('/api/checklists', routes.checklistRoutes);
+app.use('/api/checklist-items', routes.checklistItemRoutes);
 
 // Root route
 app.get('/', (req, res) => {
