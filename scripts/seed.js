@@ -25,6 +25,11 @@ const LiveSession = require('../models/LiveSession');
 const GroupSession = require('../models/GroupSession');
 const Attendance = require('../models/Attendance');
 const Enrollment = require('../models/Enrollment');
+const Class = require('../models/Class');
+const ClassComponent = require('../models/ClassComponent');
+const Video = require('../models/Video');
+const Checklist = require('../models/Checklist');
+const ChecklistItem = require('../models/ChecklistItem');
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
@@ -118,6 +123,22 @@ const seedData = async () => {
     await seedAttendance(liveSessions, groupSessions, batches, groups, users);
     console.log('Attendance seeded successfully');
     
+    // Seed classes
+    const classes = await seedClasses(weeks);
+    console.log('Classes seeded successfully');
+    
+    const components = await seedClassComponents(classes);
+    console.log('Class components seeded successfully');
+    
+    const videos = await seedVideos(classes);
+    console.log('Videos seeded successfully');
+    
+    const checklists = await seedChecklists(classes);
+    console.log('Checklists seeded successfully');
+    
+    const checklistItems = await seedChecklistItems(checklists);
+    console.log('Checklist items seeded successfully');
+    
     console.log('Database seeded successfully!');
     process.exit(0);
   } catch (error) {
@@ -147,6 +168,11 @@ const clearDatabase = async () => {
   await GroupSession.deleteMany({});
   await Attendance.deleteMany({});
   await Enrollment.deleteMany({});
+  await Class.deleteMany({});
+  await ClassComponent.deleteMany({});
+  await Video.deleteMany({});
+  await Checklist.deleteMany({});
+  await ChecklistItem.deleteMany({});
 };
 
 // Seed roles
@@ -1132,6 +1158,172 @@ const seedAttendance = async (liveSessions, groupSessions, batches, groups, user
   }
   
   return await Attendance.insertMany(attendance);
+};
+
+// Seed classes
+const seedClasses = async (weeks) => {
+  const classes = [
+    {
+      week: weeks[0]._id,
+      title: 'Introduction to HTML',
+      description: 'Learn the basics of HTML markup language',
+      order_number: 1,
+      type: 'lecture',
+      is_active: true,
+      is_required: true,
+      icon_url: '/uploads/classes/html-intro-icon.png'
+    },
+    {
+      week: weeks[0]._id,
+      title: 'HTML Elements and Attributes',
+      description: 'Understanding HTML elements and their attributes',
+      order_number: 2,
+      type: 'workshop',
+      is_active: true,
+      is_required: true,
+      icon_url: '/uploads/classes/html-elements-icon.png'
+    },
+    {
+      week: weeks[1]._id,
+      title: 'CSS Selectors',
+      description: 'Learn about CSS selectors and specificity',
+      order_number: 1,
+      type: 'lecture',
+      is_active: true,
+      is_required: true,
+      icon_url: '/uploads/classes/css-selectors-icon.png'
+    }
+  ];
+  
+  return await Class.insertMany(classes);
+};
+
+// Seed class components
+const seedClassComponents = async (classes) => {
+  const components = [
+    {
+      class: classes[0]._id,
+      title: 'HTML Document Structure',
+      content: '<h1>HTML Document Structure</h1><p>Learn about the basic structure of an HTML document...</p>',
+      component_type: 'document',
+      icon_type: 'document',
+      order_number: 1,
+      is_active: true,
+      is_required: true
+    },
+    {
+      class: classes[0]._id,
+      title: 'Common HTML Elements',
+      content: '<h2>Common HTML Elements</h2><p>Explore the most commonly used HTML elements...</p>',
+      component_type: 'document',
+      icon_type: 'list',
+      order_number: 2,
+      is_active: true,
+      is_required: true
+    },
+    {
+      class: classes[1]._id,
+      title: 'HTML Forms',
+      content: '<h2>HTML Forms</h2><p>Learn how to create and style HTML forms...</p>',
+      component_type: 'document',
+      icon_type: 'form',
+      order_number: 1,
+      is_active: true,
+      is_required: true
+    }
+  ];
+  
+  return await ClassComponent.insertMany(components);
+};
+
+// Seed videos
+const seedVideos = async (classes) => {
+  const videos = [
+    {
+      class: classes[0]._id,
+      title: 'HTML Basics Tutorial',
+      url: 'https://www.example.com/videos/html-basics',
+      duration_minutes: 45,
+      is_live: false,
+      min_watched_time: 30,
+      is_disabled: false,
+      notes: 'This video covers the fundamentals of HTML'
+    },
+    {
+      class: classes[0]._id,
+      title: 'HTML Elements Deep Dive',
+      url: 'https://www.example.com/videos/html-elements',
+      duration_minutes: 60,
+      is_live: false,
+      min_watched_time: 45,
+      is_disabled: false,
+      notes: 'Detailed explanation of HTML elements'
+    },
+    {
+      class: classes[1]._id,
+      title: 'HTML Forms Tutorial',
+      url: 'https://www.example.com/videos/html-forms',
+      duration_minutes: 30,
+      is_live: false,
+      min_watched_time: 20,
+      is_disabled: false,
+      notes: 'Learn how to create HTML forms'
+    }
+  ];
+  
+  return await Video.insertMany(videos);
+};
+
+// Seed checklists
+const seedChecklists = async (classes) => {
+  const checklists = [
+    {
+      class: classes[0]._id,
+      title: 'HTML Fundamentals Checklist',
+      description: 'Checklist for HTML fundamentals',
+      is_active: true
+    },
+    {
+      class: classes[1]._id,
+      title: 'HTML Elements Checklist',
+      description: 'Checklist for HTML elements',
+      is_active: true
+    }
+  ];
+  
+  return await Checklist.insertMany(checklists);
+};
+
+// Seed checklist items
+const seedChecklistItems = async (checklists) => {
+  const items = [
+    {
+      checklist: checklists[0]._id,
+      title: 'Understand HTML Document Structure',
+      html_content: '<p>Learn about DOCTYPE, html, head, and body tags</p>',
+      is_required: true,
+      order_number: 1,
+      is_active: true
+    },
+    {
+      checklist: checklists[0]._id,
+      title: 'Master Basic HTML Elements',
+      html_content: '<p>Learn about headings, paragraphs, and text formatting</p>',
+      is_required: true,
+      order_number: 2,
+      is_active: true
+    },
+    {
+      checklist: checklists[1]._id,
+      title: 'Create HTML Forms',
+      html_content: '<p>Learn to create and style HTML forms</p>',
+      is_required: true,
+      order_number: 1,
+      is_active: true
+    }
+  ];
+  
+  return await ChecklistItem.insertMany(items);
 };
 
 // Run the seed function
