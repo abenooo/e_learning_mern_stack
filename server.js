@@ -15,9 +15,9 @@ const routes = require('./routes');
 // Initialize Express app
 const app = express();
 
-// Configure CORS properly
+// Configure CORS properly for production
 const corsOptions = {
-  origin: '*', // For development only, restrict in production
+  origin: ['https://e-learning-mern-stack.onrender.com/', 'http://localhost:3000'], // Add your frontend domains
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -31,12 +31,12 @@ app.use(morgan('dev'));
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Debug routes
+// Debug route to test basic connectivity
 app.get('/api/test', (req, res) => {
   res.json({ message: 'API is working' });
 });
 
-// Routes
+// Routes - Make sure all routes are properly registered
 app.use('/api/auth', routes.authRoutes);
 app.use('/api/users', routes.userRoutes);
 app.use('/api/courses', routes.courseRoutes);
@@ -50,6 +50,15 @@ app.use('/api/class-components', routes.classComponentRoutes);
 app.use('/api/videos', routes.videoRoutes);
 app.use('/api/checklists', routes.checklistRoutes);
 app.use('/api/checklist-items', routes.checklistItemRoutes);
+
+// Add this before your other routes
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok',
+    message: 'Server is running',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Root route
 app.get('/', (req, res) => {
