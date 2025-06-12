@@ -2,6 +2,7 @@ const Course = require('../models/Course');
 const CourseInstructor = require('../models/CourseInstructor');
 const UserRole = require('../models/UserRole');
 const { validationResult } = require('express-validator');
+const { upload, cloudinary } = require('../config/cloudinary');
 
 /**
  * @swagger
@@ -52,7 +53,7 @@ const { validationResult } = require('express-validator');
  *           enum: [asc, desc]
  *           default: desc
  */
-exports.getCourses = async (req, res, next) => {
+const getCourses = async (req, res, next) => {
   try {
     console.log('Get all courses request received');
     
@@ -134,7 +135,7 @@ exports.getCourses = async (req, res, next) => {
  *         schema:
  *           type: string
  */
-exports.getCourse = async (req, res, next) => {
+const getCourse = async (req, res, next) => {
   try {
     console.log(`Get course request received for ID: ${req.params.id}`);
     
@@ -180,7 +181,7 @@ exports.getCourse = async (req, res, next) => {
  *     security:
  *       - bearerAuth: []
  */
-exports.createCourse = async (req, res, next) => {
+const createCourse = async (req, res, next) => {
   try {
     console.log('Create course request received');
     
@@ -196,6 +197,11 @@ exports.createCourse = async (req, res, next) => {
     
     // Add creator to request body
     req.body.creator = req.user.id;
+    
+    // Handle thumbnail upload
+    if (req.file) {
+      req.body.thumbnail = req.file.path; // Cloudinary URL
+    }
     
     // Set default values if not provided
     if (!req.body.status) {
@@ -243,7 +249,7 @@ exports.createCourse = async (req, res, next) => {
  *         schema:
  *           type: string
  */
-exports.updateCourse = async (req, res, next) => {
+const updateCourse = async (req, res, next) => {
   try {
     console.log(`Update course request received for ID: ${req.params.id}`);
     
@@ -285,7 +291,15 @@ exports.updateCourse = async (req, res, next) => {
       });
     }
     
-
+    // Handle thumbnail upload
+    if (req.file) {
+      // Delete old thumbnail from Cloudinary if it exists
+      if (course.thumbnail) {
+        const publicId = course.thumbnail.split('/').pop().split('.')[0];
+        await cloudinary.uploader.destroy(publicId);
+      }
+      req.body.thumbnail = req.file.path; // Update with new Cloudinary URL
+    }
     
     // Update course
     course = await Course.findByIdAndUpdate(
@@ -324,7 +338,7 @@ exports.updateCourse = async (req, res, next) => {
  *         schema:
  *           type: string
  */
-exports.deleteCourse = async (req, res, next) => {
+const deleteCourse = async (req, res, next) => {
   try {
     console.log(`Delete course request received for ID: ${req.params.id}`);
     
@@ -356,13 +370,11 @@ exports.deleteCourse = async (req, res, next) => {
       });
     }
     
-    // Check if course is published
-    // if (course.status === 'published') {
-    //   return res.status(400).json({
-    //     success: false,
-    //     error: 'Cannot delete a published course. Archive it instead.'
-    //   });
-    // }
+    // Delete thumbnail from Cloudinary if it exists
+    if (course.thumbnail) {
+      const publicId = course.thumbnail.split('/').pop().split('.')[0];
+      await cloudinary.uploader.destroy(publicId);
+    }
     
     // Delete course
     await Course.findByIdAndDelete(req.params.id);
@@ -391,7 +403,7 @@ exports.deleteCourse = async (req, res, next) => {
  *         schema:
  *           type: string
  */
-exports.getCourseInstructors = async (req, res, next) => {
+const getCourseInstructors = async (req, res, next) => {
   try {
     console.log(`Get course instructors request received for course ID: ${req.params.id}`);
     
@@ -428,7 +440,7 @@ exports.getCourseInstructors = async (req, res, next) => {
 // @desc    Assign instructor to course
 // @route   POST /api/courses/:id/instructors
 // @access  Private
-exports.assignInstructor = async (req, res, next) => {
+const assignInstructor = async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
@@ -495,7 +507,7 @@ exports.assignInstructor = async (req, res, next) => {
 // @desc    Remove instructor from course
 // @route   DELETE /api/courses/:id/instructors/:userId
 // @access  Private
-exports.removeInstructor = async (req, res, next) => {
+const removeInstructor = async (req, res, next) => {
   try {
     // Check if course exists
     const course = await Course.findById(req.params.id);
@@ -534,4 +546,15 @@ exports.removeInstructor = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+module.exports = {
+  getCourses,
+  getCourse,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+  getCourseInstructors,
+  assignInstructor,
+  removeInstructor
 };
