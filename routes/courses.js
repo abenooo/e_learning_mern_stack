@@ -1,6 +1,7 @@
 const express = require('express');
 const { check } = require('express-validator');
 const { protect, checkPermission } = require('../middleware/auth');
+const { uploadSingle } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -96,9 +97,10 @@ router.post(
   [
     protect,
     checkPermission('courses', 'create'),
+    uploadSingle('thumbnail'),
     check('title', 'Title is required').not().isEmpty(),
     check('description', 'Description is required').not().isEmpty(),
-    check('duration_months', 'Duration is required').isNumeric(),
+    check('duration_months', 'Duration is required').trim().isNumeric(),
     check('price', 'Price must be a number').optional().isNumeric(),
     check('difficulty_level', 'Invalid difficulty level')
       .optional()
@@ -130,9 +132,10 @@ router.put(
   [
     protect,
     checkPermission('courses', 'update'),
+    uploadSingle('thumbnail'),
     check('title', 'Title is required').optional().not().isEmpty(),
     check('description', 'Description is required').optional().not().isEmpty(),
-    check('duration_months', 'Duration must be a number').optional().isNumeric(),
+    check('duration_months', 'Duration must be a number').optional().trim().isNumeric(),
     check('price', 'Price must be a number').optional().isNumeric(),
     check('difficulty_level', 'Invalid difficulty level')
       .optional()
