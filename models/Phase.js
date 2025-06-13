@@ -11,6 +11,10 @@ const PhaseSchema = new mongoose.Schema({
     required: [true, 'Phase title is required'],
     trim: true
   },
+  display_title: {
+    type: String,
+    trim: true,
+  },
   description: {
     type: String
   },
@@ -34,7 +38,14 @@ const PhaseSchema = new mongoose.Schema({
   is_required: {
     type: Boolean,
     default: true
-  }
+  },
+  slug: {
+    type: String,
+    required: [true, 'Phase URL is required'],
+    unique: true,
+    trim: true,
+    lowercase: true,
+  },
 }, {
   timestamps: {
     createdAt: 'created_at',
