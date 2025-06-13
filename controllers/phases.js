@@ -11,7 +11,6 @@ const { upload, cloudinary } = require('../config/cloudinary'); // Import for im
  *       required:
  *         - batch_course
  *         - title
- *         - slug
  *         - order_number
  *       properties:
  *         _id:
@@ -23,9 +22,6 @@ const { upload, cloudinary } = require('../config/cloudinary'); // Import for im
  *         title:
  *           type: string
  *           description: Title of the phase
- *         slug:
- *           type: string
- *           description: URL-friendly identifier for the phase (e.g., 'phase-1-introduction')
  *         display_title:
  *           type: string
  *           description: Title of the phase
@@ -264,7 +260,6 @@ const getPhase = async (req, res, next) => {
  *             required:
  *               - batch_course
  *               - title
- *               - slug
  *               - order_number
  *             properties:
  *               batch_course:
@@ -276,9 +271,6 @@ const getPhase = async (req, res, next) => {
  *               display_title:
  *                 type: string
  *                 description: Title of the phase
- *               slug:
- *                 type: string
- *                 description: Unique URL-friendly identifier for the phase
  *               description:
  *                 type: string
  *                 description: Description of the phase
@@ -405,9 +397,6 @@ const createPhase = async (req, res, next) => {
  *               display_title:
  *                 type: string
  *                 description: Updated title of the phase
- *               slug:
- *                 type: string
- *                 description: Updated URL-friendly identifier for the phase
  *               description:
  *                 type: string
  *                 description: Updated description of the phase
