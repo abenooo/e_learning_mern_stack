@@ -221,7 +221,7 @@ const getPhase = async (req, res, next) => {
     console.log(`Get phase request received for ID: ${req.params.id}`);
 
     const phase = await Phase.findById(req.params.id)
-      .populate('batch_course', 'title');
+      .populate('course', 'title');
 
     if (!phase) {
       console.log(`Phase not found with ID: ${req.params.id}`);
