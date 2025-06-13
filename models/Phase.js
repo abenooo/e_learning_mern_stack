@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 
 const PhaseSchema = new mongoose.Schema({
-  batch_course: {
+  course: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'BatchCourse',
+    ref: 'Course',
     required: true
   },
   title: {
