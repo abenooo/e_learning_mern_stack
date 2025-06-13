@@ -17,10 +17,13 @@ const { validationResult } = require('express-validator');
  *           description: The auto-generated id of the week
  *         phase:
  *           type: string
- *           description: Reference to the phase
+ *           description: Reference to the phase ID
  *         title:
  *           type: string
- *           description: Title of the week
+ *           description: Week Name (from the form)
+ *         display_title:
+ *           type: string
+ *           description: Week Title (from the form)
  *         description:
  *           type: string
  *           description: Description of the week
@@ -43,9 +46,12 @@ const { validationResult } = require('express-validator');
  *           type: boolean
  *           description: Whether the week is required
  *           default: true
- *         icon_url:
+ *         group_session:
  *           type: string
- *           description: URL of the week icon
+ *           description: Reference to the Group Session ID
+ *         live_session:
+ *           type: string
+ *           description: Reference to the Live Session ID
  */
 
 /**
@@ -60,6 +66,11 @@ const { validationResult } = require('express-validator');
  *         schema:
  *           type: string
  *         description: Filter by phase ID
+ *       - in: query
+ *         name: course
+ *         schema:
+ *           type: string
+ *         description: Filter by Course ID (weeks belong to phases which belong to courses)
  *       - in: query
  *         name: is_active
  *         schema:
@@ -128,6 +139,12 @@ exports.getWeeks = async (req, res, next) => {
       query.phase = req.query.phase;
     }
     
+    if (req.query.course) {
+      const phasesInCourse = await Phase.find({ course: req.query.course }).select('_id');
+      const phaseIds = phasesInCourse.map(phase => phase._id);
+      query.phase = { $in: phaseIds };
+    }
+    
     if (req.query.is_active !== undefined) {
       query.is_active = req.query.is_active === 'true';
     }
@@ -141,7 +158,16 @@ exports.getWeeks = async (req, res, next) => {
     const sort = { [sortField]: sortOrder };
     
     const weeks = await Week.find(query)
-      .populate('phase', 'title')
+      .populate({
+        path: 'phase',
+        select: 'title display_title course',
+        populate: {
+          path: 'course',
+          select: 'title'
+        }
+      })
+      .populate('group_session', 'title session_date')
+      .populate('live_session', 'title session_date')
       .sort(sort)
       .skip(startIndex)
       .limit(limit);
@@ -200,7 +226,16 @@ exports.getWeek = async (req, res, next) => {
     console.log(`Get week request received for ID: ${req.params.id}`);
     
     const week = await Week.findById(req.params.id)
-      .populate('phase', 'title');
+      .populate({
+        path: 'phase',
+        select: 'title display_title course',
+        populate: {
+          path: 'course',
+          select: 'title'
+        }
+      })
+      .populate('group_session', 'title session_date')
+      .populate('live_session', 'title session_date');
     
     if (!week) {
       console.log(`Week not found with ID: ${req.params.id}`);
@@ -246,7 +281,10 @@ exports.getWeek = async (req, res, next) => {
  *                 description: ID of the phase
  *               title:
  *                 type: string
- *                 description: Title of the week
+ *                 description: Week Name (from the form)
+ *               display_title:
+ *                 type: string
+ *                 description: Week Title (from the form)
  *               description:
  *                 type: string
  *                 description: Description of the week
@@ -267,9 +305,12 @@ exports.getWeek = async (req, res, next) => {
  *               is_required:
  *                 type: boolean
  *                 description: Whether the week is required
- *               icon_url:
+ *               group_session:
  *                 type: string
- *                 description: URL of the week icon
+ *                 description: ID of the Group Session
+ *               live_session:
+ *                 type: string
+ *                 description: ID of the Live Session
  *     responses:
  *       201:
  *         description: Week created successfully
@@ -309,7 +350,16 @@ exports.createWeek = async (req, res, next) => {
     
     const week = await Week.create(req.body);
     const populatedWeek = await Week.findById(week._id)
-      .populate('phase', 'title');
+      .populate({
+        path: 'phase',
+        select: 'title display_title course',
+        populate: {
+          path: 'course',
+          select: 'title'
+        }
+      })
+      .populate('group_session', 'title session_date')
+      .populate('live_session', 'title session_date');
     
     console.log(`Week created with ID: ${week._id}`);
     
@@ -347,7 +397,10 @@ exports.createWeek = async (req, res, next) => {
  *             properties:
  *               title:
  *                 type: string
- *                 description: Title of the week
+ *                 description: Week Name (from the form)
+ *               display_title:
+ *                 type: string
+ *                 description: Week Title (from the form)
  *               description:
  *                 type: string
  *                 description: Description of the week
@@ -368,9 +421,12 @@ exports.createWeek = async (req, res, next) => {
  *               is_required:
  *                 type: boolean
  *                 description: Whether the week is required
- *               icon_url:
+ *               group_session:
  *                 type: string
- *                 description: URL of the week icon
+ *                 description: ID of the Group Session
+ *               live_session:
+ *                 type: string
+ *                 description: ID of the Live Session
  *     responses:
  *       200:
  *         description: Week updated successfully
@@ -420,7 +476,17 @@ exports.updateWeek = async (req, res, next) => {
         new: true,
         runValidators: true
       }
-    ).populate('phase', 'title');
+    )
+      .populate({
+        path: 'phase',
+        select: 'title display_title course',
+        populate: {
+          path: 'course',
+          select: 'title'
+        }
+      })
+      .populate('group_session', 'title session_date')
+      .populate('live_session', 'title session_date');
     
     console.log(`Week updated: ${week.title}`);
     
