@@ -1,5 +1,6 @@
 const express = require('express');
 const { check } = require('express-validator');
+const { uploadPhaseIcon } = require('../middleware/phaseUpload');
 const { protect, checkPermission } = require('../middleware/auth');
 
 const router = express.Router();
@@ -25,11 +26,14 @@ router.post(
   [
     protect,
     checkPermission('phases', 'create'),
+    uploadPhaseIcon('icon_url'),
     check('batch_course', 'Batch course ID is required').not().isEmpty(),
-    check('title', 'Title is required').not().isEmpty(),
-    check('order_number', 'Order number is required').isNumeric(),
-    check('start_date', 'Invalid start date').optional().isISO8601(),
-    check('end_date', 'Invalid end date').optional().isISO8601()
+    check('title', 'Phase title is required').not().isEmpty().trim(),
+    check('slug', 'Phase URL is required').not().isEmpty().trim().isString(),
+    check('description', 'Description is required').optional().trim(),
+    check('order_number', 'Order number is required').not().isEmpty().isInt({ min: 1 }).withMessage('Order number must be a positive integer'),
+    check('start_date', 'Start date must be a valid date').optional().isISO8601().toDate(),
+    check('end_date', 'End date must be a valid date').optional().isISO8601().toDate(),
   ],
   createPhase
 );
@@ -40,10 +44,13 @@ router.put(
   [
     protect,
     checkPermission('phases', 'update'),
-    check('title', 'Title is required').optional().not().isEmpty(),
-    check('order_number', 'Order number must be numeric').optional().isNumeric(),
-    check('start_date', 'Invalid start date').optional().isISO8601(),
-    check('end_date', 'Invalid end date').optional().isISO8601()
+    uploadPhaseIcon('icon_url'),
+    check('title', 'Phase title is required').optional().not().isEmpty().trim(),
+    check('slug', 'Phase URL must be a string').optional().trim().isString(),
+    check('description', 'Description must be a string').optional().trim(),
+    check('order_number', 'Order number must be an integer').optional().isInt({ min: 1 }).withMessage('Order number must be a positive integer'),
+    check('start_date', 'Start date must be a valid date').optional().isISO8601().toDate(),
+    check('end_date', 'End date must be a valid date').optional().isISO8601().toDate(),
   ],
   updatePhase
 );
