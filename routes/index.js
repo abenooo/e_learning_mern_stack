@@ -12,6 +12,8 @@ const classComponentRoutes = require('./classComponents');
 const videoRoutes = require('./videos');
 const checklistRoutes = require('./checklists');
 const checklistItemRoutes = require('./checklistItems');
+const liveSessionRoutes = require('./liveSessions');
+const groupSessionRoutes = require('./groupSessions');
 
 module.exports = {
   authRoutes,
@@ -26,5 +28,7 @@ module.exports = {
   classComponentRoutes,
   videoRoutes,
   checklistRoutes,
-  checklistItemRoutes
+  checklistItemRoutes,
+  liveSessionRoutes,
+  groupSessionRoutes
 };
