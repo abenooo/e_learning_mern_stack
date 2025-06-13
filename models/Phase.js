@@ -39,13 +39,6 @@ const PhaseSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  slug: {
-    type: String,
-    required: [true, 'Phase URL is required'],
-    unique: true,
-    trim: true,
-    lowercase: true,
-  },
 }, {
   timestamps: {
     createdAt: 'created_at',
