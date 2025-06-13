@@ -8,8 +8,12 @@ const WeekSchema = new mongoose.Schema({
   },
   title: {
     type: String,
-    required: [true, 'Week title is required'],
+    required: [true, 'Week Name is required'],
     trim: true
+  },
+  display_title: {
+    type: String,
+    trim: true,
   },
   description: {
     type: String
@@ -32,8 +36,15 @@ const WeekSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  icon_url: {
-    type: String
+  group_session: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'GroupSession',
+    required: false
+  },
+  live_session: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LiveSession',
+    required: false
   }
 }, {
   timestamps: {
