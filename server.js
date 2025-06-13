@@ -50,6 +50,8 @@ app.use('/api/class-components', routes.classComponentRoutes);
 app.use('/api/videos', routes.videoRoutes);
 app.use('/api/checklists', routes.checklistRoutes);
 app.use('/api/checklist-items', routes.checklistItemRoutes);
+app.use('/api/live-sessions', routes.liveSessionRoutes);
+app.use('/api/group-sessions', routes.groupSessionRoutes);
 
 // Add this before your other routes
 app.get('/api/health', (req, res) => {
