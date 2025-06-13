@@ -27,7 +27,7 @@ router.post(
     protect,
     checkPermission('phases', 'create'),
     uploadPhaseIcon('icon_url'),
-    check('batch_course', 'Batch course ID is required').not().isEmpty(),
+    check('course', 'Course ID is required').not().isEmpty(),
     check('title', 'Phase title is required').not().isEmpty().trim(),
     check('description', 'Description is required').optional().trim(),
     check('order_number', 'Order number is required').not().isEmpty().isInt({ min: 1 }).withMessage('Order number must be a positive integer'),
