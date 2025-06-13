@@ -68,10 +68,10 @@ const { upload, cloudinary } = require('../config/cloudinary'); // Import for im
  *     tags: [Phases]
  *     parameters:
  *       - in: query
- *         name: batch_course
+ *         name: course
  *         schema:
  *           type: string
- *         description: Filter by batch course ID
+ *         description: Filter by course ID
  *       - in: query
  *         name: is_active
  *         schema:
@@ -135,9 +135,9 @@ const getPhases = async (req, res, next) => {
     // Build query
     const query = {};
 
-    // Filter by batch course
-    if (req.query.batch_course) {
-      query.batch_course = req.query.batch_course;
+    // Filter by course
+    if (req.query.course) {
+      query.course = req.query.course;
     }
 
     // Filter by active status
@@ -155,10 +155,10 @@ const getPhases = async (req, res, next) => {
     const sortOrder = req.query.order === 'desc' ? -1 : 1;
     const sort = { [sortField]: sortOrder };
 
-    // Execute query with pagination and populate batch_course
+    // Execute query with pagination and populate course
     const phases = await Phase.find(query)
       .populate({
-        path: 'batch_course',
+        path: 'course',
         select: 'title _id' // Select only title and _id fields
       })
       .sort(sort)
@@ -258,13 +258,13 @@ const getPhase = async (req, res, next) => {
  *           schema:
  *             type: object
  *             required:
- *               - batch_course
+ *               - course
  *               - title
  *               - order_number
  *             properties:
- *               batch_course:
+ *               course:
  *                 type: string
- *                 description: ID of the batch course this phase belongs to
+ *                 description: ID of the course this phase belongs to
  *               title:
  *                 type: string
  *                 description: Title of the phase
@@ -329,11 +329,11 @@ const createPhase = async (req, res, next) => {
       });
     }
 
-    // Validate batch_course exists (basic check, more robust validation might involve checking if ID exists in DB)
-    if (!req.body.batch_course) {
+    // Validate course exists
+    if (!req.body.course) {
       return res.status(400).json({
         success: false,
-        error: 'Batch course ID is required'
+        error: 'Course ID is required'
       });
     }
 
@@ -350,10 +350,10 @@ const createPhase = async (req, res, next) => {
     // Create phase
     const phase = await Phase.create(req.body);
 
-    // Populate batch_course after creation for the response
+    // Populate course after creation for the response
     const populatedPhase = await Phase.findById(phase._id)
       .populate({
-        path: 'batch_course',
+        path: 'course',
         select: 'title _id'
       });
 
