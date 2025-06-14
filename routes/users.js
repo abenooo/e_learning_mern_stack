@@ -31,7 +31,8 @@ router.post(
     authorize('super_admin', 'admin'),
     check('name', 'Name is required').not().isEmpty(),
     check('email', 'Please include a valid email').isEmail(),
-    check('password', 'Password must be at least 6 characters').isLength({ min: 6 })
+    check('password', 'Password must be at least 6 characters').isLength({ min: 6 }),
+    check('address', 'Address is required').optional().not().isEmpty()
   ],
   createUser
 );
@@ -43,7 +44,8 @@ router.put(
     protect,
     checkPermission('users', 'update'),
     check('name', 'Name is required').optional().not().isEmpty(),
-    check('email', 'Please include a valid email').optional().isEmail()
+    check('email', 'Please include a valid email').optional().isEmail(),
+    check('address', 'Address must be a string').optional().isString()
   ],
   updateUser
 );
