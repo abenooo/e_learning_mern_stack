@@ -31,21 +31,26 @@ const Video = require('../models/Video');
 const Checklist = require('../models/Checklist');
 const ChecklistItem = require('../models/ChecklistItem');
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB connected for seeding'))
+// Connect to MongoDB with options
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 30000, // Increased timeout to 30 seconds
+})
+  .then(() => {
+    console.log('MongoDB connected for seeding');
+    return seedData();
+  })
   .catch(err => {
     console.error('MongoDB connection error:', err);
     process.exit(1);
   });
 
-// Seed data
 const seedData = async () => {
   try {
-    // Clear existing data
+    console.log('Clearing database...');
     await clearDatabase();
-    
-    console.log('Database cleared. Starting to seed data...');
+    console.log('Database cleared.');
     
     // Seed roles
     const roles = await seedRoles();
@@ -56,7 +61,7 @@ const seedData = async () => {
     console.log('Permissions seeded successfully');
     
     // Seed role permissions
-    await seedRolePermissions(roles, permissions);
+    const rolePermissions = await seedRolePermissions(roles, permissions);
     console.log('Role permissions seeded successfully');
     
     // Seed users
@@ -64,7 +69,7 @@ const seedData = async () => {
     console.log('Users seeded successfully');
     
     // Seed user roles
-    await seedUserRoles(users, roles);
+    const userRoles = await seedUserRoles(users, roles);
     console.log('User roles seeded successfully');
     
     // Seed courses
@@ -84,7 +89,7 @@ const seedData = async () => {
     console.log('Groups seeded successfully');
     
     // Seed phases
-    const phases = await seedPhases(batchCourses);
+    const phases = await seedPhases(courses);
     console.log('Phases seeded successfully');
     
     // Seed weeks
@@ -92,19 +97,19 @@ const seedData = async () => {
     console.log('Weeks seeded successfully');
     
     // Seed batch users
-    await seedBatchUsers(batches, users);
+    const batchUsers = await seedBatchUsers(batches, users);
     console.log('Batch users seeded successfully');
     
     // Seed group users
-    await seedGroupUsers(groups, users);
+    const groupUsers = await seedGroupUsers(groups, users);
     console.log('Group users seeded successfully');
     
     // Seed course instructors
-    await seedCourseInstructors(courses, users);
+    const courseInstructors = await seedCourseInstructors(courses, users);
     console.log('Course instructors seeded successfully');
     
     // Seed batch instructors
-    await seedBatchInstructors(batches, groups, users);
+    const batchInstructors = await seedBatchInstructors(batches, groups, users);
     console.log('Batch instructors seeded successfully');
     
     // Seed live sessions
@@ -116,11 +121,11 @@ const seedData = async () => {
     console.log('Group sessions seeded successfully');
     
     // Seed enrollments
-    await seedEnrollments(batchCourses, users);
+    const enrollments = await seedEnrollments(batchCourses, users);
     console.log('Enrollments seeded successfully');
     
     // Seed attendance
-    await seedAttendance(liveSessions, groupSessions, batches, groups, users);
+    const attendance = await seedAttendance(liveSessions, groupSessions, batches, groups, users);
     console.log('Attendance seeded successfully');
     
     // Seed classes
@@ -173,6 +178,7 @@ const clearDatabase = async () => {
   await Video.deleteMany({});
   await Checklist.deleteMany({});
   await ChecklistItem.deleteMany({});
+  await mongoose.connection.db.dropDatabase();
 };
 
 // Seed roles
@@ -675,10 +681,16 @@ const seedGroups = async (batches) => {
 };
 
 // Seed phases
-const seedPhases = async (batchCourses) => {
+const seedPhases = async (courses) => {
+  if (!courses || courses.length === 0) {
+    console.warn('No courses available to link phases to. Skipping phase seeding.');
+    return [];
+  }
+  const defaultCourseId = courses[0]._id;
+
   const phases = [
     {
-      batch_course: batchCourses[0]._id,
+      course: defaultCourseId,
       title: 'Phase 1: Building static websites using HTML, CSS & Bootstrap',
       description: 'Learn the fundamentals of web development with HTML, CSS, and Bootstrap',
       icon_url: '/uploads/phases/phase1-icon.png',
@@ -689,7 +701,7 @@ const seedPhases = async (batchCourses) => {
       is_required: true
     },
     {
-      batch_course: batchCourses[0]._id,
+      course: defaultCourseId,
       title: 'Phase 2: JavaScript Programming',
       description: 'Master JavaScript programming for web development',
       icon_url: '/uploads/phases/phase2-icon.png',
@@ -700,7 +712,7 @@ const seedPhases = async (batchCourses) => {
       is_required: true
     },
     {
-      batch_course: batchCourses[0]._id,
+      course: defaultCourseId,
       title: 'Phase 3: React Frontend Development',
       description: 'Build modern user interfaces with React',
       icon_url: '/uploads/phases/phase3-icon.png',
@@ -711,7 +723,7 @@ const seedPhases = async (batchCourses) => {
       is_required: true
     }
   ];
-  
+
   return await Phase.insertMany(phases);
 };
 
