@@ -3,12 +3,121 @@ const Role = require('../models/Role');
 const UserRole = require('../models/UserRole');
 const { validationResult } = require('express-validator');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       required:
+ *         - name
+ *         - email
+ *         - password
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: The auto-generated ID of the user
+ *         name:
+ *           type: string
+ *           description: The name of the user
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: The email of the user (must be unique)
+ *         phone:
+ *           type: string
+ *           description: The phone number of the user
+ *         user_id_number:
+ *           type: string
+ *           description: An identifier for the user
+ *         address:
+ *           type: string
+ *           description: The physical address of the user
+ *         is_active:
+ *           type: boolean
+ *           description: Whether the user account is active
+ *         is_email_verified:
+ *           type: boolean
+ *           description: Whether the user's email has been verified
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *           description: The date and time the user was created
+ *         last_login:
+ *           type: string
+ *           format: date-time
+ *           description: The date and time of the user's last login
+ */
+
+/**
+ * @swagger
+ * /users:
+ *   get:
+ *     summary: Get all users
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *         description: Filter users by role name
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search users by name or email
+ *     responses:
+ *       200:
+ *         description: List of users
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 count: { type: integer }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
 // @desc    Get all users
 // @route   GET /api/users
 // @access  Private
 exports.getUsers = async (req, res, next) => {
   try {
-    const users = await User.find();
+    const { role, search } = req.query;
+    let query = {};
+    let users;
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    if (role) {
+      const roleDoc = await Role.findOne({ name: role });
+      if (roleDoc) {
+        const userRoles = await UserRole.find({ role: roleDoc._id, is_active: true }).select('user');
+        const userIds = userRoles.map(ur => ur.user);
+        query._id = { $in: userIds };
+      } else {
+        return res.status(200).json({ success: true, count: 0, data: [] }); // No matching role, so no users
+      }
+    }
+
+    // Explicitly select fields for clarity and frontend needs
+    users = await User.find(query).select('name email phone address is_active is_email_verified created_at');
     
     res.status(200).json({
       success: true,
@@ -20,12 +129,48 @@ exports.getUsers = async (req, res, next) => {
   }
 };
 
+/**
+ * @swagger
+ * /users/{id}:
+ *   get:
+ *     summary: Get a single user by ID
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 // @desc    Get single user
 // @route   GET /api/users/:id
 // @access  Private
 exports.getUser = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
+    // Explicitly select fields for clarity and frontend needs
+    const user = await User.findById(req.params.id).select('name email phone address is_active is_email_verified created_at');
     
     if (!user) {
       return res.status(404).json({
@@ -43,6 +188,65 @@ exports.getUser = async (req, res, next) => {
   }
 };
 
+/**
+ * @swagger
+ * /users:
+ *   post:
+ *     summary: Create a new user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Name of the user
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email of the user
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 description: Password for the user
+ *               phone:
+ *                 type: string
+ *                 description: Phone number of the user
+ *               address:
+ *                 type: string
+ *                 description: Address of the user
+ *               role:
+ *                 type: string
+ *                 description: Optional. Role name to assign (e.g., 'student', 'instructor', 'admin')
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Bad request (validation error or email already registered)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
 // @desc    Create user
 // @route   POST /api/users
 // @access  Private/Admin
@@ -54,7 +258,7 @@ exports.createUser = async (req, res, next) => {
       return res.status(400).json({ errors: errors.array() });
     }
     
-    const { name, email, password, phone, role } = req.body;
+    const { name, email, password, phone, address, role } = req.body;
     
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -70,7 +274,8 @@ exports.createUser = async (req, res, next) => {
       name,
       email,
       password,
-      phone
+      phone,
+      address
     });
     
     // Assign role if provided
@@ -104,6 +309,66 @@ exports.createUser = async (req, res, next) => {
   }
 };
 
+/**
+ * @swagger
+ * /users/{id}:
+ *   put:
+ *     summary: Update an existing user by ID
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Updated name of the user
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Updated email of the user
+ *               phone:
+ *                 type: string
+ *                 description: Updated phone number of the user
+ *               address:
+ *                 type: string
+ *                 description: Updated address of the user
+ *               is_active:
+ *                 type: boolean
+ *                 description: Whether the user account is active
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Bad request (validation error)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 // @desc    Update user
 // @route   PUT /api/users/:id
 // @access  Private
@@ -115,7 +380,7 @@ exports.updateUser = async (req, res, next) => {
       return res.status(400).json({ errors: errors.array() });
     }
     
-    const { name, email, phone, is_active } = req.body;
+    const { name, email, phone, address, is_active } = req.body;
     
     // Find user
     let user = await User.findById(req.params.id);
@@ -130,9 +395,9 @@ exports.updateUser = async (req, res, next) => {
     // Update user
     user = await User.findByIdAndUpdate(
       req.params.id,
-      { name, email, phone, is_active },
+      { name, email, phone, address, is_active },
       { new: true, runValidators: true }
-    );
+    ).select('name email phone address is_active is_email_verified created_at');
     
     res.status(200).json({
       success: true,
@@ -143,6 +408,40 @@ exports.updateUser = async (req, res, next) => {
   }
 };
 
+/**
+ * @swagger
+ * /users/{id}:
+ *   delete:
+ *     summary: Delete a user by ID
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 // @desc    Delete user
 // @route   DELETE /api/users/:id
 // @access  Private/Admin
@@ -170,6 +469,55 @@ exports.deleteUser = async (req, res, next) => {
   }
 };
 
+/**
+ * @swagger
+ * /users/{id}/roles:
+ *   get:
+ *     summary: Get roles assigned to a specific user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: List of user roles
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 count: { type: integer }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id: { type: string }
+ *                       user: { type: string }
+ *                       role:
+ *                         type: object
+ *                         properties:
+ *                           _id: { type: string }
+ *                           name: { type: string }
+ *                           description: { type: string }
+ *                       assigned_at: { type: string, format: date-time }
+ *                       is_active: { type: boolean }
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 // @desc    Get user roles
 // @route   GET /api/users/:id/roles
 // @access  Private
@@ -201,6 +549,61 @@ exports.getUserRoles = async (req, res, next) => {
   }
 };
 
+/**
+ * @swagger
+ * /users/{id}/roles:
+ *   post:
+ *     summary: Assign a role to a user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - role
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 description: ID of the role to assign
+ *     responses:
+ *       201:
+ *         description: Role assigned successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id: { type: string }
+ *                     user: { type: string }
+ *                     role: { type: string }
+ *                     assigned_at: { type: string, format: date-time }
+ *                     is_active: { type: boolean }
+ *       400:
+ *         description: Bad request (validation error or user already has role)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: User or Role not found
+ *       500:
+ *         description: Server error
+ */
 // controllers/users.js - Updated assignRole function
 exports.assignRole = async (req, res, next) => {
   try {
