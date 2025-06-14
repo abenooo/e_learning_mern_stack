@@ -11,13 +11,7 @@ const WeekSchema = new mongoose.Schema({
     required: [true, 'Week Name is required'],
     trim: true
   },
-  display_title: {
-    type: String,
-    trim: true,
-  },
-  description: {
-    type: String
-  },
+
   order_number: {
     type: Number,
     required: [true, 'Order number is required']
