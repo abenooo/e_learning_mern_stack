@@ -1,6 +1,7 @@
 const LiveSession = require('../models/LiveSession');
 const Week = require('../models/Week'); // Need Week to find phase/course info
 const { validationResult } = require('express-validator');
+const mongoose = require('mongoose'); // Import mongoose for model access
 
 /**
  * @swagger
@@ -95,6 +96,11 @@ const { validationResult } = require('express-validator');
  *         schema:
  *           type: string
  *         description: Filter by Phase ID (live sessions belong to weeks which belong to phases)
+ *       - in: query
+ *         name: instructor
+ *         schema:
+ *           type: string
+ *         description: Filter by Instructor ID
  *     responses:
  *       200:
  *         description: List of live sessions
@@ -117,27 +123,55 @@ exports.getLiveSessions = async (req, res, next) => {
     console.log('Get all live sessions request received');
     const query = {};
 
+    // Direct filters for week, batch, and instructor
     if (req.query.week) {
       query.week = req.query.week;
     }
     if (req.query.batch) {
       query.batch = req.query.batch;
     }
+    if (req.query.instructor) {
+      query.instructor = req.query.instructor;
+    }
 
-    // Filter by Course or Phase: Requires lookup through Week model
+    // Handle filtering by Course or Phase, which affects 'week'
     if (req.query.course || req.query.phase) {
-      let weekQuery = {};
-      if (req.query.phase) {
-        weekQuery.phase = req.query.phase;
-      }
+      let weekFilter = {};
+
       if (req.query.course) {
         const phasesInCourse = await mongoose.model('Phase').find({ course: req.query.course }).select('_id');
-        const phaseIds = phasesInCourse.map(phase => phase._id);
-        weekQuery.phase = { $in: phaseIds };
+        if (phasesInCourse.length === 0) {
+          return res.status(200).json({ success: true, count: 0, data: [] });
+        }
+        weekFilter.phase = { $in: phasesInCourse.map(phase => phase._id) };
       }
-      const weeks = await Week.find(weekQuery).select('_id');
+
+      if (req.query.phase) {
+        if (weekFilter.phase) {
+          if (!weekFilter.phase.$in.map(id => id.toString()).includes(req.query.phase)) {
+            return res.status(200).json({ success: true, count: 0, data: [] });
+          }
+          weekFilter.phase = req.query.phase;
+        } else {
+          weekFilter.phase = req.query.phase;
+        }
+      }
+
+      const weeks = await Week.find(weekFilter).select('_id');
+      if (weeks.length === 0) {
+        return res.status(200).json({ success: true, count: 0, data: [] });
+      }
+
       const weekIds = weeks.map(week => week._id);
-      query.week = { $in: weekIds };
+
+      if (query.week) {
+        query.week = { $in: weekIds.filter(id => id.toString() === query.week.toString()) };
+        if (query.week.$in.length === 0) {
+            return res.status(200).json({ success: true, count: 0, data: [] });
+        }
+      } else {
+        query.week = { $in: weekIds };
+      }
     }
 
     const liveSessions = await LiveSession.find(query)
@@ -154,7 +188,7 @@ exports.getLiveSessions = async (req, res, next) => {
         }
       })
       .populate('batch', 'name')
-      .populate('instructor', 'name email');
+      .populate('instructor', 'name email avatar user_id_number'); // Add avatar and user_id_number
 
     res.status(200).json({
       success: true,
@@ -212,10 +246,10 @@ exports.getLiveSessions = async (req, res, next) => {
  *                 description: Date of the live session
  *               start_time:
  *                 type: string
- *                 description: Start time of the live session
+ *                 description: Start time
  *               end_time:
  *                 type: string
- *                 description: End time of the live session
+ *                 description: End time
  *               meeting_link:
  *                 type: string
  *                 description: Zoom Meeting Link
@@ -274,7 +308,7 @@ exports.createLiveSession = async (req, res, next) => {
         }
       })
       .populate('batch', 'name')
-      .populate('instructor', 'name email');
+      .populate('instructor', 'name email avatar user_id_number'); // Add avatar and user_id_number
 
     res.status(201).json({
       success: true,
@@ -332,7 +366,7 @@ exports.getLiveSession = async (req, res, next) => {
         }
       })
       .populate('batch', 'name')
-      .populate('instructor', 'name email');
+      .populate('instructor', 'name email avatar user_id_number'); // Add avatar and user_id_number
 
     if (!liveSession) {
       return res.status(404).json({ success: false, error: 'Live Session not found' });
@@ -431,7 +465,7 @@ exports.updateLiveSession = async (req, res, next) => {
         }
       })
       .populate('batch', 'name')
-      .populate('instructor', 'name email');
+      .populate('instructor', 'name email avatar user_id_number'); // Add avatar and user_id_number
 
     res.status(200).json({ success: true, data: liveSession });
   } catch (error) {
