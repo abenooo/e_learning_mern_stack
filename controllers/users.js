@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Role = require('../models/Role');
 const UserRole = require('../models/UserRole');
 const { validationResult } = require('express-validator');
+const logActivity = require('../utils/activityLogger');
 
 /**
  * @swagger
@@ -300,6 +301,9 @@ exports.createUser = async (req, res, next) => {
       }
     }
     
+    // Log the user creation activity
+    await logActivity(req.user.id, 'create', 'User', user._id, `Created user: ${user.email}`, req);
+    
     res.status(201).json({
       success: true,
       data: user
@@ -399,6 +403,9 @@ exports.updateUser = async (req, res, next) => {
       { new: true, runValidators: true }
     ).select('name email phone address is_active is_email_verified created_at');
     
+    // Log the user update activity
+    await logActivity(req.user.id, 'update', 'User', user._id, `Updated user: ${user.email}`, req);
+    
     res.status(200).json({
       success: true,
       data: user
@@ -459,6 +466,9 @@ exports.deleteUser = async (req, res, next) => {
     
     // Delete user
     await User.findByIdAndDelete(req.params.id);
+    
+    // Log the user deletion activity
+    await logActivity(req.user.id, 'delete', 'User', user._id, `Deleted user: ${user.email}`, req);
     
     res.status(200).json({
       success: true,
@@ -686,6 +696,9 @@ exports.assignRole = async (req, res, next) => {
       assigned_at: Date.now()
     });
     
+    // Log the role assignment activity
+    await logActivity(req.user.id, 'role_assign', 'UserRole', userRole._id, `Assigned role ${roleDoc.name} to user ${user.email}`, req);
+    
     res.status(201).json({
       success: true,
       data: userRole
@@ -729,6 +742,9 @@ exports.removeRole = async (req, res, next) => {
     userRole.removed_at = Date.now();
     await userRole.save();
     
+    // Log the role removal activity
+    await logActivity(req.user.id, 'role_remove', 'UserRole', userRole._id, `Removed role from user ${user.email}`, req);
+
     res.status(200).json({
       success: true,
       data: {}
