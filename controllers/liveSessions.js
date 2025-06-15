@@ -1,5 +1,9 @@
 const LiveSession = require('../models/LiveSession');
 const Week = require('../models/Week'); // Need Week to find phase/course info
+const Course = require('../models/Course'); // Import Course model
+const Phase = require('../models/Phase');   // Import Phase model
+const Batch = require('../models/Batch');   // Import Batch model
+const BatchCourse = require('../models/BatchCourse'); // Import BatchCourse model
 const { validationResult } = require('express-validator');
 const mongoose = require('mongoose'); // Import mongoose for model access
 
@@ -73,57 +77,88 @@ const mongoose = require('mongoose'); // Import mongoose for model access
  * @swagger
  * /live-sessions:
  *   get:
- *     summary: Get all live sessions with filtering and pagination
+ *     summary: Get all live sessions with filtering and pagination, and related academic data
  *     tags: [Live Sessions]
  *     parameters:
  *       - in: query
  *         name: week
  *         schema:
  *           type: string
- *         description: Filter by Week ID
+ *         description: Filter live sessions by Week ID
  *       - in: query
  *         name: batch
  *         schema:
  *           type: string
- *         description: Filter by Batch ID
+ *         description: Filter live sessions by Batch ID
  *       - in: query
  *         name: course
  *         schema:
  *           type: string
- *         description: Filter by Course ID (live sessions belong to weeks which belong to phases, which belong to courses)
+ *         description: Filter live sessions by Course ID (also triggers return of related academic data for dropdowns)
  *       - in: query
  *         name: phase
  *         schema:
  *           type: string
- *         description: Filter by Phase ID (live sessions belong to weeks which belong to phases)
+ *         description: Filter live sessions by Phase ID
  *       - in: query
  *         name: instructor
  *         schema:
  *           type: string
- *         description: Filter by Instructor ID
+ *         description: Filter live sessions by Instructor ID
  *     responses:
  *       200:
- *         description: List of live sessions
+ *         description: List of live sessions with associated dropdown data
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
  *                 success: { type: boolean }
- *                 count: { type: integer }
+ *                 count: { type: integer, description: Number of filtered live sessions }
  *                 data:
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/LiveSession'
+ *                 dropdown_data:
+ *                   type: object
+ *                   properties:
+ *                     batches:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id: { type: string }
+ *                           name: { type: string }
+ *                     phases:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id: { type: string }
+ *                           title: { type: string }
+ *                     weeks:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id: { type: string }
+ *                           title: { type: string }
+ *                           display_title: { type: string }
+ *                     session_types:
+ *                       type: array
+ *                       items:
+ *                         type: string
  *       500:
  *         description: Server error
  */
 exports.getLiveSessions = async (req, res, next) => {
   try {
-    // console.log('Get all live sessions request received');
+    console.log('Get all live sessions request received');
     const query = {};
+    const dropdownData = {};
+    let phaseIdsForWeeks = []; // Initialize here to ensure it's always defined
 
-    // Direct filters for week, batch, and instructor
+    // Direct filters for live sessions
     if (req.query.week) {
       query.week = req.query.week;
     }
@@ -134,45 +169,80 @@ exports.getLiveSessions = async (req, res, next) => {
       query.instructor = req.query.instructor;
     }
 
-    // Handle filtering by Course or Phase, which affects 'week'
+    // Handle filtering by Course or Phase for live sessions
+    // This part also determines related data for dropdowns
     if (req.query.course || req.query.phase) {
       let weekFilter = {};
+      let phaseFilter = {};
 
+      // --- Populate Dropdown Data for Phases and Weeks based on Course ---
       if (req.query.course) {
-        const phasesInCourse = await mongoose.model('Phase').find({ course: req.query.course }).select('_id');
-        if (phasesInCourse.length === 0) {
-          return res.status(200).json({ success: true, count: 0, data: [] });
-        }
-        weekFilter.phase = { $in: phasesInCourse.map(phase => phase._id) };
+        // Find all phases for the given course
+        const relatedPhases = await Phase.find({ course: req.query.course }).select('_id title display_title');
+        dropdownData.phases = relatedPhases.map(p => ({ _id: p._id, title: p.title, display_title: p.display_title }));
+
+        phaseIdsForWeeks = relatedPhases.map(p => p._id); // `phaseIdsForWeeks` is now guaranteed to be an array
+        const relatedWeeks = await Week.find({ phase: { $in: phaseIdsForWeeks } }).select('_id title display_title');
+        dropdownData.weeks = relatedWeeks.map(w => ({ _id: w._id, title: w.title, display_title: w.display_title }));
+
+        // Add Course ID to phase filter for live session query
+        phaseFilter.course = req.query.course;
       }
 
       if (req.query.phase) {
-        if (weekFilter.phase) {
-          if (!weekFilter.phase.$in.map(id => id.toString()).includes(req.query.phase)) {
-            return res.status(200).json({ success: true, count: 0, data: [] });
+        // If a specific phase is requested, ensure it's valid and filter dropdowns if course not specified
+        if (!req.query.course && !dropdownData.phases) {
+             const specificPhase = await Phase.findById(req.query.phase).select('_id title display_title');
+             if(specificPhase) {
+                dropdownData.phases = [{ _id: specificPhase._id, title: specificPhase.title, display_title: specificPhase.display_title }];
+                const relatedWeeks = await Week.find({ phase: specificPhase._id }).select('_id title display_title');
+                dropdownData.weeks = relatedWeeks.map(w => ({ _id: w._id, title: w.title, display_title: w.display_title }));
+             } else {
+                dropdownData.phases = [];
+                dropdownData.weeks = [];
+             }
+        }
+        weekFilter.phase = req.query.phase; // Use specific phase for week filter
+      } else if (phaseFilter.course) { // This block will only run if req.query.course was true
+        weekFilter.phase = phaseIdsForWeeks; // phaseIdsForWeeks is guaranteed to be defined here.
+      }
+
+      // If weekFilter has a phase defined (either from direct phase query or course's phases)
+      if (weekFilter.phase && (Array.isArray(weekFilter.phase) ? weekFilter.phase.length > 0 : true)) {
+          const weeksForLiveSessionQuery = await Week.find(weekFilter).select('_id');
+          if (weeksForLiveSessionQuery.length === 0) {
+            return res.status(200).json({ success: true, count: 0, data: [], dropdown_data: dropdownData });
           }
-          weekFilter.phase = req.query.phase;
-        } else {
-          weekFilter.phase = req.query.phase;
-        }
-      }
+          const weekIdsForLiveSessionQuery = weeksForLiveSessionQuery.map(week => week._id);
 
-      const weeks = await Week.find(weekFilter).select('_id');
-      if (weeks.length === 0) {
-        return res.status(200).json({ success: true, count: 0, data: [] });
-      }
-
-      const weekIds = weeks.map(week => week._id);
-
-      if (query.week) {
-        query.week = { $in: weekIds.filter(id => id.toString() === query.week.toString()) };
-        if (query.week.$in.length === 0) {
-            return res.status(200).json({ success: true, count: 0, data: [] });
-        }
-      } else {
-        query.week = { $in: weekIds };
+          // Apply week filter to the main query
+          if (query.week) {
+            query.week = { $in: weekIdsForLiveSessionQuery.filter(id => id.toString() === query.week.toString()) };
+            if (query.week.$in.length === 0) {
+                return res.status(200).json({ success: true, count: 0, data: [], dropdown_data: dropdownData });
+            }
+          } else {
+            query.week = { $in: weekIdsForLiveSessionQuery };
+          }
+      } else if (req.query.phase) { // Case where only phase is given, and no weeks found
+           const existingWeek = await Week.findOne({ phase: req.query.phase });
+           if (!existingWeek && query.week) { // If direct week filter also exists and doesn't match phase
+               return res.status(200).json({ success: true, count: 0, data: [], dropdown_data: dropdownData });
+           }
       }
     }
+
+    // --- Populate Dropdown Data for Batches based on Course ---
+    if (req.query.course) {
+      const batchCourses = await BatchCourse.find({ course: req.query.course }).select('batch');
+      const batchIds = batchCourses.map(bc => bc.batch);
+      const relatedBatches = await Batch.find({ _id: { $in: batchIds } }).select('_id name');
+      dropdownData.batches = relatedBatches.map(b => ({ _id: b._id, name: b.name }));
+    }
+
+    // --- Add static Live Session Types to dropdown data ---
+    dropdownData.session_types = ['LS-1', 'LS-2'];
+
 
     const liveSessions = await LiveSession.find(query)
       .populate({
@@ -193,7 +263,8 @@ exports.getLiveSessions = async (req, res, next) => {
     res.status(200).json({
       success: true,
       count: liveSessions.length,
-      data: liveSessions
+      data: liveSessions,
+      dropdown_data: dropdownData // Include the new dropdown data
     });
   } catch (error) {
     console.error('Get live sessions error:', error);
