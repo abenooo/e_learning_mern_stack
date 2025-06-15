@@ -14,6 +14,7 @@ const checklistRoutes = require('./checklists');
 const checklistItemRoutes = require('./checklistItems');
 const liveSessionRoutes = require('./liveSessions');
 const groupSessionRoutes = require('./groupSessions');
+const activityLogRoutes = require('./activityLogs');
 
 module.exports = {
   authRoutes,
@@ -30,5 +31,6 @@ module.exports = {
   checklistRoutes,
   checklistItemRoutes,
   liveSessionRoutes,
-  groupSessionRoutes
+  groupSessionRoutes,
+  activityLogRoutes
 };
