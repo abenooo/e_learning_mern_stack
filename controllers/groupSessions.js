@@ -256,43 +256,46 @@ exports.getGroupSessions = async (req, res, next) => {
  *             properties:
  *               week:
  *                 type: string
- *                 description: ID of the Week
+ *                 description: ID of the associated Week
  *               group:
  *                 type: string
- *                 description: ID of the Group
+ *                 description: ID of the associated Group
  *               instructor:
  *                 type: string
- *                 description: ID of the Instructor (User)
+ *                 description: ID of the associated Instructor (User)
  *               title:
  *                 type: string
- *                 description: Title of the group session (e.g., "Discussion Session")
+ *                 description: Title of the group session
  *               description:
  *                 type: string
- *                 description: Description of the group session
+ *                 description: Optional description of the group session
  *               session_date:
  *                 type: string
  *                 format: date-time
- *                 description: Date of the group session
+ *                 description: Date of the group session (ISO 8601 format)
  *               start_time:
  *                 type: string
- *                 description: Start time of the group session
+ *                 description: Start time of the group session (e.g., "10:00 AM")
  *               end_time:
  *                 type: string
- *                 description: End time of the group session
+ *                 description: End time of the group session (e.g., "12:00 PM")
  *               meeting_link:
  *                 type: string
  *                 description: Zoom Meeting Link
  *               recording_url:
  *                 type: string
- *                 description: URL for the session recording
+ *                 description: URL of the session recording
  *               session_type:
  *                 type: string
  *                 enum: [GS-1, GS-2]
+ *                 description: Type of group session
  *               is_active:
  *                 type: boolean
+ *                 description: Whether the session is active
  *               status:
  *                 type: string
  *                 enum: [scheduled, in_progress, completed, cancelled]
+ *                 description: Current status of the session
  *     responses:
  *       201:
  *         description: Group session created successfully
@@ -301,19 +304,17 @@ exports.getGroupSessions = async (req, res, next) => {
  *             schema:
  *               type: object
  *               properties:
- *                 success: { type: boolean }
+ *                 success:
+ *                   type: boolean
  *                 data:
  *                   $ref: '#/components/schemas/GroupSession'
  *       400:
- *         description: Validation error
- *       401:
- *         description: Unauthorized
+ *         $ref: '#/components/responses/BadRequest'
  *       500:
- *         description: Server error
+ *         $ref: '#/components/responses/ServerError'
  */
 exports.createGroupSession = async (req, res, next) => {
   try {
-    console.log('Create group session request received');
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ success: false, errors: errors.array() });
@@ -321,6 +322,7 @@ exports.createGroupSession = async (req, res, next) => {
 
     const groupSession = await GroupSession.create(req.body);
 
+    // Populate the created group session for the response
     const populatedGroupSession = await GroupSession.findById(groupSession._id)
       .populate({
         path: 'week',
@@ -342,7 +344,7 @@ exports.createGroupSession = async (req, res, next) => {
           select: 'name'
         }
       })
-      .populate('instructor', 'name email');
+      .populate('instructor', 'name email avatar user_id_number'); // Populate instructor details for 'Created By'
 
     res.status(201).json({
       success: true,
