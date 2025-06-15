@@ -120,6 +120,7 @@ exports.getGroupSessions = async (req, res, next) => {
     console.log('Get all group sessions request received');
     const query = {};
 
+    // Direct filters for week and group
     if (req.query.week) {
       query.week = req.query.week;
     }
@@ -127,27 +128,71 @@ exports.getGroupSessions = async (req, res, next) => {
       query.group = req.query.group;
     }
 
-    // Filter by Course or Phase: Requires lookup through Week model
+    // Handle filtering by Course or Phase, which affects 'week'
     if (req.query.course || req.query.phase) {
-      let weekQuery = {};
-      if (req.query.phase) {
-        weekQuery.phase = req.query.phase;
-      }
+      let weekFilter = {};
+
       if (req.query.course) {
+        // Find phases for the given course
         const phasesInCourse = await mongoose.model('Phase').find({ course: req.query.course }).select('_id');
-        const phaseIds = phasesInCourse.map(phase => phase._id);
-        weekQuery.phase = { $in: phaseIds };
+        if (phasesInCourse.length === 0) {
+          // If no phases found for the course, return empty array early
+          return res.status(200).json({ success: true, count: 0, data: [] });
+        }
+        weekFilter.phase = { $in: phasesInCourse.map(phase => phase._id) };
       }
-      const weeks = await Week.find(weekQuery).select('_id');
+
+      if (req.query.phase) {
+        if (weekFilter.phase) {
+          // If both course and phase are provided, ensure the phase is in the course's phases
+          if (!weekFilter.phase.$in.map(id => id.toString()).includes(req.query.phase)) {
+            return res.status(200).json({ success: true, count: 0, data: [] });
+          }
+          // If already filtered by course and phase, just keep the specific phase
+          weekFilter.phase = req.query.phase;
+        } else {
+          weekFilter.phase = req.query.phase;
+        }
+      }
+
+      // Find weeks based on the constructed weekFilter
+      const weeks = await Week.find(weekFilter).select('_id');
+      if (weeks.length === 0) {
+        return res.status(200).json({ success: true, count: 0, data: [] });
+      }
+
       const weekIds = weeks.map(week => week._id);
-      query.week = { $in: weekIds };
+
+      // Apply week filter to the main query
+      if (query.week) {
+        // If week was already filtered directly, intersect the two lists
+        query.week = { $in: weekIds.filter(id => id.toString() === query.week.toString()) };
+        if (query.week.$in.length === 0) {
+            return res.status(200).json({ success: true, count: 0, data: [] });
+        }
+      } else {
+        query.week = { $in: weekIds };
+      }
     }
 
-    // Filter by Batch: Requires lookup through Group model
+    // Handle filtering by Batch, which affects 'group'
     if (req.query.batch) {
       const groupsInBatch = await mongoose.model('Group').find({ batch: req.query.batch }).select('_id');
+      if (groupsInBatch.length === 0) {
+        return res.status(200).json({ success: true, count: 0, data: [] });
+      }
       const groupIds = groupsInBatch.map(group => group._id);
-      query.group = { $in: groupIds };
+
+      // Apply group filter to the main query
+      if (query.group) {
+        // If group was already filtered directly, intersect the two lists
+        query.group = { $in: groupIds.filter(id => id.toString() === query.group.toString()) };
+        if (query.group.$in.length === 0) {
+            return res.status(200).json({ success: true, count: 0, data: [] });
+        }
+      } else {
+        query.group = { $in: groupIds };
+      }
     }
 
 
@@ -172,7 +217,7 @@ exports.getGroupSessions = async (req, res, next) => {
           select: 'name'
         }
       })
-      .populate('instructor', 'name email');
+      .populate('instructor', 'name email avatar user_id_number'); // Add avatar and user_id_number for 'Created By'
 
     res.status(200).json({
       success: true,
