@@ -4,6 +4,7 @@ const UserRole = require('../models/UserRole');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const crypto = require('crypto');
+const logActivity = require('../utils/activityLogger');
 
 /**
  * Generate access token with 1-hour expiration
@@ -203,6 +204,9 @@ exports.register = async (req, res, next) => {
       });
     }
 
+    // Log the user registration activity
+    await logActivity(user._id, 'create', 'User', user._id, 'User registered new account', req);
+
     res.status(201).json({
       success: true,
       accessToken,
@@ -393,6 +397,9 @@ exports.login = async (req, res, next) => {
       });
     }
 
+    // Log successful login activity
+    await logActivity(user._id, 'login', 'User', user._id, 'User logged in successfully', req);
+
     res.status(200).json({
       success: true,
       accessToken,
@@ -582,6 +589,11 @@ exports.logout = async (req, res, next) => {
     // Clear cookie if in production
     if (process.env.NODE_ENV === 'production') {
       res.clearCookie('refreshToken');
+    }
+    
+    // Log logout activity
+    if (req.user && req.user.id) {
+      await logActivity(req.user.id, 'logout', 'User', req.user.id, 'User logged out', req);
     }
     
     res.status(200).json({
