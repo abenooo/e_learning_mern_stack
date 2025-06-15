@@ -120,7 +120,7 @@ const mongoose = require('mongoose'); // Import mongoose for model access
  */
 exports.getLiveSessions = async (req, res, next) => {
   try {
-    console.log('Get all live sessions request received');
+    // console.log('Get all live sessions request received');
     const query = {};
 
     // Direct filters for week, batch, and instructor
