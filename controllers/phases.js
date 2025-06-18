@@ -9,47 +9,38 @@ const { upload, cloudinary } = require('../config/cloudinary'); // Import for im
  *     Phase:
  *       type: object
  *       required:
- *         - batch_course
- *         - title
- *         - order_number
+ *         - course
+ *         - phase_name
+ *         - phase_order
+ *         - created_by
  *       properties:
  *         _id:
  *           type: string
  *           description: The auto-generated id of the phase
- *         batch_course:
+ *         course:
  *           type: string
- *           description: Reference to the batch course ID
- *         title:
+ *           description: Reference to the Course ID
+ *         phase_name:
  *           type: string
- *           description: Title of the phase
- *         display_title:
+ *           description: Name of the phase
+ *         phase_title:
  *           type: string
- *           description: Title of the phase
- *         description:
+ *           description: Display title of the phase
+ *         phase_url_path:
+ *           type: string
+ *           description: URL path of the phase (e.g., for icon or resources)
+ *         phase_description:
  *           type: string
  *           description: Description of the phase
- *         icon_url:
+ *         phase_icon_path:
  *           type: string
  *           description: URL of the phase icon hosted on Cloudinary
- *         order_number:
+ *         phase_order:
  *           type: integer
  *           description: Order number of the phase
- *         start_date:
+ *         created_by:
  *           type: string
- *           format: date-time
- *           description: Start date of the phase (ISO 8601 format)
- *         end_date:
- *           type: string
- *           format: date-time
- *           description: End date of the phase (ISO 8601 format)
- *         is_active:
- *           type: boolean
- *           description: Whether the phase is active
- *           default: true
- *         is_required:
- *           type: boolean
- *           description: Whether the phase is required for completion
- *           default: true
+ *           description: Reference to the User ID who created the phase
  *         created_at:
  *           type: string
  *           format: date-time
@@ -73,11 +64,6 @@ const { upload, cloudinary } = require('../config/cloudinary'); // Import for im
  *           type: string
  *         description: Filter by course ID
  *       - in: query
- *         name: is_active
- *         schema:
- *           type: boolean
- *         description: Filter phases by active status (true/false)
- *       - in: query
  *         name: page
  *         schema:
  *           type: integer
@@ -93,7 +79,7 @@ const { upload, cloudinary } = require('../config/cloudinary'); // Import for im
  *         name: sort
  *         schema:
  *           type: string
- *           enum: [order_number, start_date, end_date, created_at]
+ *           enum: [phase_order, created_at]
  *         description: Field to sort phases by
  *       - in: query
  *         name: order
@@ -140,26 +126,25 @@ const getPhases = async (req, res, next) => {
       query.course = req.query.course;
     }
 
-    // Filter by active status
-    if (req.query.is_active !== undefined) {
-      query.is_active = req.query.is_active === 'true';
-    }
-
     // Pagination
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
     const startIndex = (page - 1) * limit;
 
     // Sorting
-    const sortField = req.query.sort || 'order_number';
+    const sortField = req.query.sort || 'phase_order';
     const sortOrder = req.query.order === 'desc' ? -1 : 1;
     const sort = { [sortField]: sortOrder };
 
     // Execute query with pagination and populate course
     const phases = await Phase.find(query)
       .populate({
-        path: 'course',
-        select: 'title _id' // Select only title and _id fields
+        path: 'course_id',
+        select: 'title description price duration_months difficulty_level status course_type delivery_method'
+      })
+      .populate({
+        path: 'created_by',
+        select: 'name email'
       })
       .sort(sort)
       .skip(startIndex)
@@ -170,16 +155,31 @@ const getPhases = async (req, res, next) => {
 
     console.log(`Found ${phases.length} phases out of ${total} total`);
 
+    // Transform the phases data to match the desired frontend format
+    const transformedPhases = phases.map(phase => ({
+      name: phase.phase_name,
+      path: phase.path || `/phase-${phase.phase_order}`,
+      brief_description: phase.brief_description || phase.phase_description,
+      full_description: phase.full_description || phase.phase_description,
+      icon: phase.icon || null,
+      hash: phase.hash || phase._id.toString().slice(-12),
+      has_access: true, // or your own logic
+      order: phase.phase_order,
+      course: phase.course_id
+        ? {
+            title: phase.course_id.title,
+            id: phase.course_id._id
+          }
+        : null
+    }));
+
     res.status(200).json({
       success: true,
-      count: phases.length,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      },
-      data: phases
+      message: "Phases retrieved successfully.",
+      data: {
+        phases: transformedPhases,
+        total: transformedPhases.length
+      }
     });
   } catch (error) {
     console.error('Get phases error:', error);
@@ -231,7 +231,7 @@ const getPhase = async (req, res, next) => {
       });
     }
 
-    console.log(`Found phase: ${phase.title}`);
+    console.log(`Found phase: ${phase.phase_name}`);
 
     res.status(200).json({
       success: true,
@@ -254,49 +254,21 @@ const getPhase = async (req, res, next) => {
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
+ *             properties:
+ *               course: { type: string, description: 'Course ID' }
+ *               phase_name: { type: string, description: 'Name of the phase' }
+ *               phase_title: { type: string, description: 'Display title of the phase' }
+ *               phase_url_path: { type: string, description: 'URL path for phase resources' }
+ *               phase_description: { type: string, description: 'Description of the phase' }
+ *               phase_icon_path: { type: string, description: 'URL of the phase icon' }
+ *               phase_order: { type: integer, description: 'Order number of the phase' }
  *             required:
  *               - course
- *               - title
- *               - order_number
- *             properties:
- *               course:
- *                 type: string
- *                 description: ID of the course this phase belongs to
- *               title:
- *                 type: string
- *                 description: Title of the phase
- *               display_title:
- *                 type: string
- *                 description: Title of the phase
- *               description:
- *                 type: string
- *                 description: Description of the phase
- *               icon_url:
- *                 type: string
- *                 format: binary
- *                 description: Image file for the phase icon (e.g., 60x60, jpg, jpeg, gif, png)
- *               order_number:
- *                 type: integer
- *                 description: Order number of the phase
- *               start_date:
- *                 type: string
- *                 format: date-time
- *                 description: Start date of the phase (ISO 8601 format)
- *               end_date:
- *                 type: string
- *                 format: date-time
- *                 description: End date of the phase (ISO 8601 format)
- *               is_active:
- *                 type: boolean
- *                 description: Whether the phase is active
- *                 default: true
- *               is_required:
- *                 type: boolean
- *                 description: Whether the phase is required for completion
- *                 default: true
+ *               - phase_name
+ *               - phase_order
  *     responses:
  *       201:
  *         description: Phase created successfully
@@ -318,8 +290,6 @@ const getPhase = async (req, res, next) => {
 const createPhase = async (req, res, next) => {
   try {
     console.log('Create phase request received');
-
-    // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('Validation errors:', errors.array());
@@ -329,39 +299,25 @@ const createPhase = async (req, res, next) => {
       });
     }
 
-    // Validate course exists
-    if (!req.body.course) {
-      return res.status(400).json({
-        success: false,
-        error: 'Course ID is required'
-      });
+    // Add creator to request body
+    req.body.created_by = req.user.id;
+
+    // Handle file uploads
+    if (req.files) {
+      if (req.files.phase_icon_path) {
+        req.body.phase_icon_path = req.files.phase_icon_path[0].path;
+      }
+      if (req.files.phase_url_path) {
+        req.body.phase_url_path = req.files.phase_url_path[0].path;
+      }
     }
 
-    // Handle icon_url upload
-    if (req.file) {
-      req.body.icon_url = req.file.path; // Cloudinary URL
-    }
-
-    // Ensure order_number is parsed as an integer
-    if (req.body.order_number) {
-      req.body.order_number = parseInt(req.body.order_number, 10);
-    }
-
-    // Create phase
     const phase = await Phase.create(req.body);
-
-    // Populate course after creation for the response
-    const populatedPhase = await Phase.findById(phase._id)
-      .populate({
-        path: 'course',
-        select: 'title _id'
-      });
-
     console.log(`Phase created with ID: ${phase._id}`);
 
     res.status(201).json({
       success: true,
-      data: populatedPhase
+      data: phase
     });
   } catch (error) {
     console.error('Create phase error:', error);
@@ -373,7 +329,7 @@ const createPhase = async (req, res, next) => {
  * @swagger
  * /phases/{id}:
  *   put:
- *     summary: Update an existing phase by ID
+ *     summary: Update a phase by ID
  *     tags: [Phases]
  *     security:
  *       - bearerAuth: []
@@ -387,40 +343,17 @@ const createPhase = async (req, res, next) => {
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               title:
- *                 type: string
- *                 description: Updated title of the phase
- *               display_title:
- *                 type: string
- *                 description: Updated title of the phase
- *               description:
- *                 type: string
- *                 description: Updated description of the phase
- *               icon_url:
- *                 type: string
- *                 format: binary
- *                 description: New image file for the phase icon (optional)
- *               order_number:
- *                 type: integer
- *                 description: Updated order number of the phase
- *               start_date:
- *                 type: string
- *                 format: date-time
- *                 description: Updated start date of the phase (ISO 8601 format)
- *               end_date:
- *                 type: string
- *                 format: date-time
- *                 description: Updated end date of the phase (ISO 8601 format)
- *               is_active:
- *                 type: boolean
- *                 description: Updated active status
- *               is_required:
- *                 type: boolean
- *                 description: Updated required status
+ *               course: { type: string, description: 'Course ID' }
+ *               phase_name: { type: string, description: 'Name of the phase' }
+ *               phase_title: { type: string, description: 'Display title of the phase' }
+ *               phase_url_path: { type: string, description: 'URL path for phase resources' }
+ *               phase_description: { type: string, description: 'Description of the phase' }
+ *               phase_icon_path: { type: string, description: 'URL of the phase icon' }
+ *               phase_order: { type: integer, description: 'Order number of the phase' }
  *     responses:
  *       200:
  *         description: Phase updated successfully
@@ -444,8 +377,6 @@ const createPhase = async (req, res, next) => {
 const updatePhase = async (req, res, next) => {
   try {
     console.log(`Update phase request received for ID: ${req.params.id}`);
-
-    // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('Validation errors:', errors.array());
@@ -455,9 +386,7 @@ const updatePhase = async (req, res, next) => {
       });
     }
 
-    // Find phase
     let phase = await Phase.findById(req.params.id);
-
     if (!phase) {
       console.log(`Phase not found with ID: ${req.params.id}`);
       return res.status(404).json({
@@ -466,31 +395,32 @@ const updatePhase = async (req, res, next) => {
       });
     }
 
-    // Handle icon_url upload
-    if (req.file) {
-      // Delete old icon from Cloudinary if it exists
-      if (phase.icon_url) {
-        const publicId = phase.icon_url.split('/').pop().split('.')[0]; // Assumes publicId is filename without extension
-        await cloudinary.uploader.destroy(publicId);
+    // Handle file uploads and deletion of old files
+    if (req.files) {
+      if (req.files.phase_icon_path) {
+        // Delete old icon from Cloudinary if it exists
+        if (phase.phase_icon_path) {
+          const publicId = phase.phase_icon_path.split('/').pop().split('.')[0];
+          await cloudinary.uploader.destroy(publicId);
+        }
+        req.body.phase_icon_path = req.files.phase_icon_path[0].path;
       }
-      req.body.icon_url = req.file.path; // Update with new Cloudinary URL
-    }
-    // Ensure order_number is parsed as an integer if provided
-    if (req.body.order_number) {
-      req.body.order_number = parseInt(req.body.order_number, 10);
+      if (req.files.phase_url_path) {
+        // Delete old url path file from Cloudinary if it exists
+        if (phase.phase_url_path) {
+          const publicId = phase.phase_url_path.split('/').pop().split('.')[0];
+          await cloudinary.uploader.destroy(publicId);
+        }
+        req.body.phase_url_path = req.files.phase_url_path[0].path;
+      }
     }
 
-    // Update phase
-    phase = await Phase.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true
-      }
-    );
+    phase = await Phase.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true
+    });
 
-    console.log(`Phase updated: ${phase.title}`);
+    console.log(`Phase with ID: ${phase._id} updated successfully`);
 
     res.status(200).json({
       success: true,
@@ -520,15 +450,6 @@ const updatePhase = async (req, res, next) => {
  *     responses:
  *       200:
  *         description: Phase deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 data: { type: object }
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Phase not found
  *       500:
@@ -538,9 +459,7 @@ const deletePhase = async (req, res, next) => {
   try {
     console.log(`Delete phase request received for ID: ${req.params.id}`);
 
-    // Find phase
     const phase = await Phase.findById(req.params.id);
-
     if (!phase) {
       console.log(`Phase not found with ID: ${req.params.id}`);
       return res.status(404).json({
@@ -549,15 +468,18 @@ const deletePhase = async (req, res, next) => {
       });
     }
 
-    // Delete icon from Cloudinary if it exists
-    if (phase.icon_url) {
-      const publicId = phase.icon_url.split('/').pop().split('.')[0]; // Assumes publicId is filename without extension
+    // Delete associated files from Cloudinary if they exist
+    if (phase.phase_icon_path) {
+      const publicId = phase.phase_icon_path.split('/').pop().split('.')[0];
+      await cloudinary.uploader.destroy(publicId);
+    }
+    if (phase.phase_url_path) {
+      const publicId = phase.phase_url_path.split('/').pop().split('.')[0];
       await cloudinary.uploader.destroy(publicId);
     }
 
-    // Delete phase
-    await Phase.findByIdAndDelete(req.params.id);
-    console.log(`Phase deleted: ${phase.title}`);
+    await phase.deleteOne();
+    console.log(`Phase with ID: ${req.params.id} deleted successfully`);
 
     res.status(200).json({
       success: true,
@@ -569,11 +491,10 @@ const deletePhase = async (req, res, next) => {
   }
 };
 
-// Export all controller functions
 module.exports = {
   getPhases,
   getPhase,
   createPhase,
   updatePhase,
-  deletePhase,
+  deletePhase
 };
