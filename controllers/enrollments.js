@@ -571,6 +571,7 @@ exports.getUserEnrolledBatches = async (req, res, next) => {
           year: 'numeric'
         }) : null,
         course: {
+          id: course._id,
           name: course.title,
           icon: course.logo_url || course.thumbnail || null,
           description: course.description,
