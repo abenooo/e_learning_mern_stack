@@ -39,7 +39,6 @@ mongoose.connect(process.env.MONGODB_URI, {
 })
   .then(() => {
     console.log('MongoDB connected for seeding');
-    return seedData();
   })
   .catch(err => {
     console.error('MongoDB connection error:', err);
@@ -48,6 +47,16 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 const seedData = async () => {
   try {
+    console.log('=== STARTING DATABASE SEEDING ===');
+    
+    // Check current database state
+    const courseCount = await Course.countDocuments();
+    const phaseCount = await Phase.countDocuments();
+    const weekCount = await Week.countDocuments();
+    
+    console.log(`Current database state: ${courseCount} courses, ${phaseCount} phases, ${weekCount} weeks`);
+    
+    // Clear database only once at the beginning
     console.log('Clearing database...');
     await clearDatabase();
     console.log('Database cleared.');
@@ -144,8 +153,7 @@ const seedData = async () => {
     const checklistItems = await seedChecklistItems(checklists);
     console.log('Checklist items seeded successfully');
     
-    console.log('Database seeded successfully!');
-    process.exit(0);
+    console.log('=== DATABASE SEEDED SUCCESSFULLY ===');
   } catch (error) {
     console.error('Error seeding database:', error);
     process.exit(1);
@@ -154,6 +162,10 @@ const seedData = async () => {
 
 // Clear database
 const clearDatabase = async () => {
+  try {
+    console.log('Clearing all collections...');
+    
+    // Clear all collections in order
   await User.deleteMany({});
   await Role.deleteMany({});
   await Permission.deleteMany({});
@@ -178,7 +190,12 @@ const clearDatabase = async () => {
   await Video.deleteMany({});
   await Checklist.deleteMany({});
   await ChecklistItem.deleteMany({});
-  await mongoose.connection.db.dropDatabase();
+    
+    console.log('All collections cleared successfully');
+  } catch (error) {
+    console.error('Error clearing collections:', error);
+    throw error;
+  }
 };
 
 // Seed roles
@@ -312,7 +329,7 @@ const seedRolePermissions = async (roles, permissions) => {
   const studentRole = roles.find(r => r.name === 'student');
   permissions.forEach(permission => {
     if (permission.action === 'read' && 
-        ['courses', 'batches', 'phases', 'weeks', 'sessions'].includes(permission.resource_type)) {
+        ['courses', 'batches', 'phases', 'weeks', 'sessions', 'enrollments'].includes(permission.resource_type)) {
       rolePermissions.push({
         role: studentRole._id,
         permission: permission._id,
@@ -329,6 +346,9 @@ const seedUsers = async () => {
   // Hash password
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash('password123', salt);
+  
+  // Hash password for admin users (password: 12345678)
+  const adminPassword = await bcrypt.hash('12345678', salt);
   
   const users = [
     {
@@ -410,6 +430,40 @@ const seedUsers = async () => {
       phone: '+1234567899',
       user_id_number: '20004',
       is_active: true
+    },
+    // NEW: Dedicated test student
+    {
+      name: 'Test Student',
+      email: 'teststudent@example.com',
+      password: hashedPassword,
+      phone: '+1234567900',
+      user_id_number: '20005',
+      is_active: true
+    },
+    // NEW: Admin users as requested
+    {
+      name: 'Abenezer Kifle',
+      email: 'abenezerkifle000@gmail.com',
+      password: adminPassword,
+      phone: '+251912345678',
+      user_id_number: '30001',
+      is_active: true
+    },
+    {
+      name: 'Shime Techane',
+      email: 'shimetechane@gmail.com',
+      password: adminPassword,
+      phone: '+251912345679',
+      user_id_number: '30002',
+      is_active: true
+    },
+    {
+      name: 'Kasahun Welela',
+      email: 'kasahunwelela1@gmail.com',
+      password: adminPassword,
+      phone: '+251912345680',
+      user_id_number: '30003',
+      is_active: true
     }
   ];
   
@@ -452,11 +506,20 @@ const seedUserRoles = async (users, roles) => {
     });
   }
   
-  // Assign student role to users 6-9
-  for (let i = 6; i <= 9; i++) {
+  // Assign student role to users 6-10 (including the test student)
+  for (let i = 6; i <= 10; i++) {
     userRoles.push({
       user: users[i]._id,
       role: roles.find(r => r.name === 'student')._id,
+      is_active: true
+    });
+  }
+  
+  // NEW: Assign admin role to the three new admin users (users 11-13)
+  for (let i = 11; i <= 13; i++) {
+    userRoles.push({
+      user: users[i]._id,
+      role: roles.find(r => r.name === 'admin')._id,
       is_active: true
     });
   }
@@ -466,6 +529,9 @@ const seedUserRoles = async (users, roles) => {
 
 // Seed courses
 const seedCourses = async (users) => {
+  console.log('Seeding courses...');
+  console.log('Available users:', users.length);
+  
   const courses = [
     {
       title: 'Fullstack Web Application Development',
@@ -482,27 +548,13 @@ const seedCourses = async (users) => {
       is_active: true
     },
     {
-      title: 'AWS Cloud Computing',
-      description: 'Master Amazon Web Services (AWS) and learn to deploy scalable cloud applications.',
-      thumbnail: '/uploads/courses/aws-thumbnail.jpg',
-      logo_url: '/uploads/courses/aws-logo.png',
+      title: 'React.js Advanced Development',
+      description: 'Master React.js with advanced concepts including hooks, context, performance optimization, and state management.',
+      thumbnail: '/uploads/courses/react-thumbnail.jpg',
+      logo_url: '/uploads/courses/react-logo.png',
       price: 800,
       creator: users[0]._id,
-      difficulty_level: 'intermediate',
-      status: 'published',
-      duration_months: 3,
-      course_type: 'paid',
-      delivery_method: 'online',
-      is_active: true
-    },
-    {
-      title: 'React Native Mobile Development',
-      description: 'Learn to build cross-platform mobile applications using React Native.',
-      thumbnail: '/uploads/courses/react-native-thumbnail.jpg',
-      logo_url: '/uploads/courses/react-native-logo.png',
-      price: 900,
-      creator: users[1]._id,
-      difficulty_level: 'intermediate',
+      difficulty_level: 'advanced',
       status: 'published',
       duration_months: 4,
       course_type: 'paid',
@@ -510,26 +562,26 @@ const seedCourses = async (users) => {
       is_active: true
     },
     {
-      title: 'Python for Data Science',
-      description: 'Master Python programming for data analysis and machine learning.',
-      thumbnail: '/uploads/courses/python-thumbnail.jpg',
-      logo_url: '/uploads/courses/python-logo.png',
-      price: 1000,
-      creator: users[1]._id,
+      title: 'Node.js Backend Development',
+      description: 'Build scalable backend applications with Node.js, Express, and MongoDB. Learn RESTful APIs, authentication, and deployment.',
+      thumbnail: '/uploads/courses/nodejs-thumbnail.jpg',
+      logo_url: '/uploads/courses/nodejs-logo.png',
+      price: 900,
+      creator: users[0]._id,
       difficulty_level: 'intermediate',
-      status: 'draft',
+      status: 'published',
       duration_months: 5,
       course_type: 'paid',
       delivery_method: 'online',
       is_active: true
     },
     {
-      title: 'UI/UX Design Fundamentals',
-      description: 'Learn the principles of user interface and user experience design.',
-      thumbnail: '/uploads/courses/uiux-thumbnail.jpg',
-      logo_url: '/uploads/courses/uiux-logo.png',
-      price: 700,
-      creator: users[2]._id,
+      title: 'Python Data Science',
+      description: 'Learn data science with Python, including pandas, numpy, matplotlib, and machine learning fundamentals.',
+      thumbnail: '/uploads/courses/python-thumbnail.jpg',
+      logo_url: '/uploads/courses/python-logo.png',
+      price: 1000,
+      creator: users[0]._id,
       difficulty_level: 'beginner',
       status: 'published',
       duration_months: 3,
@@ -539,7 +591,10 @@ const seedCourses = async (users) => {
     }
   ];
   
-  return await Course.insertMany(courses);
+  const result = await Course.insertMany(courses);
+  console.log(`Created ${result.length} courses:`, result.map(c => ({ id: c._id, title: c.title })));
+  
+  return result;
 };
 
 // Seed batches
@@ -567,36 +622,54 @@ const seedBatches = async (users) => {
       name: 'Jun-2025',
       batch_code: 'JUN25',
       full_name: 'June 2025 Cohort',
-      description: 'Fullstack Web Application Development cohort starting June 2025',
+      description: 'React.js Advanced Development cohort starting June 2025',
       start_date: new Date('2025-06-01'),
-      end_date: new Date('2025-12-01'),
+      end_date: new Date('2025-10-01'),
       created_by: users[0]._id,
       is_active: true,
-      max_students: 50,
+      max_students: 40,
       meeting_link: 'https://www.example.com/live/jun2025',
       flyer_url: '/uploads/batches/jun2025-flyer.jpg',
       schedule_url: '/uploads/batches/jun2025-schedule.pdf',
-      class_days: 'Sat & Sun',
-      class_start_time: '10:00 AM',
-      class_end_time: '12:00 PM',
+      class_days: 'Mon & Wed',
+      class_start_time: '2:00 PM',
+      class_end_time: '4:00 PM',
       status: 'upcoming'
     },
     {
-      name: 'Dec-2024',
-      batch_code: 'DEC24',
-      full_name: 'December 2024 Cohort',
-      description: 'AWS Cloud Computing cohort starting December 2024',
-      start_date: new Date('2024-12-01'),
-      end_date: new Date('2025-03-01'),
-      created_by: users[1]._id,
+      name: 'Sep-2025',
+      batch_code: 'SEP25',
+      full_name: 'September 2025 Cohort',
+      description: 'Node.js Backend Development cohort starting September 2025',
+      start_date: new Date('2025-09-01'),
+      end_date: new Date('2026-02-01'),
+      created_by: users[0]._id,
       is_active: true,
-      max_students: 40,
-      meeting_link: 'https://www.example.com/live/dec2024',
-      flyer_url: '/uploads/batches/dec2024-flyer.jpg',
-      schedule_url: '/uploads/batches/dec2024-schedule.pdf',
-      class_days: 'Sat & Sun',
-      class_start_time: '10:00 AM',
-      class_end_time: '12:00 PM',
+      max_students: 35,
+      meeting_link: 'https://www.example.com/live/sep2025',
+      flyer_url: '/uploads/batches/sep2025-flyer.jpg',
+      schedule_url: '/uploads/batches/sep2025-schedule.pdf',
+      class_days: 'Tue & Thu',
+      class_start_time: '6:00 PM',
+      class_end_time: '8:00 PM',
+      status: 'upcoming'
+    },
+    {
+      name: 'Dec-2025',
+      batch_code: 'DEC25',
+      full_name: 'December 2025 Cohort',
+      description: 'Python Data Science cohort starting December 2025',
+      start_date: new Date('2025-12-01'),
+      end_date: new Date('2026-03-01'),
+      created_by: users[0]._id,
+      is_active: true,
+      max_students: 45,
+      meeting_link: 'https://www.example.com/live/dec2025',
+      flyer_url: '/uploads/batches/dec2025-flyer.jpg',
+      schedule_url: '/uploads/batches/dec2025-schedule.pdf',
+      class_days: 'Fri & Sat',
+      class_start_time: '11:00 AM',
+      class_end_time: '1:00 PM',
       status: 'upcoming'
     }
   ];
@@ -608,24 +681,31 @@ const seedBatches = async (users) => {
 const seedBatchCourses = async (batches, courses) => {
   const batchCourses = [
     {
-      batch: batches[0]._id,
-      course: courses[0]._id,
+      batch: batches[0]._id, // Mar-2025
+      course: courses[0]._id, // Fullstack Web Development
       start_date: new Date('2025-03-01'),
       end_date: new Date('2025-09-01'),
       is_active: true
     },
     {
-      batch: batches[1]._id,
-      course: courses[0]._id,
+      batch: batches[1]._id, // Jun-2025
+      course: courses[1]._id, // React.js Advanced
       start_date: new Date('2025-06-01'),
-      end_date: new Date('2025-12-01'),
+      end_date: new Date('2025-10-01'),
       is_active: true
     },
     {
-      batch: batches[2]._id,
-      course: courses[1]._id,
-      start_date: new Date('2024-12-01'),
-      end_date: new Date('2025-03-01'),
+      batch: batches[2]._id, // Sep-2025
+      course: courses[2]._id, // Node.js Backend
+      start_date: new Date('2025-09-01'),
+      end_date: new Date('2026-02-01'),
+      is_active: true
+    },
+    {
+      batch: batches[3]._id, // Dec-2025
+      course: courses[3]._id, // Python Data Science
+      start_date: new Date('2025-12-01'),
+      end_date: new Date('2026-03-01'),
       is_active: true
     }
   ];
@@ -682,86 +762,181 @@ const seedGroups = async (batches) => {
 
 // Seed phases
 const seedPhases = async (courses) => {
-  if (!courses || courses.length === 0) {
-    console.warn('No courses available to link phases to. Skipping phase seeding.');
-    return [];
-  }
-  const defaultCourseId = courses[0]._id;
+  console.log('Seeding phases...');
+  console.log('Available courses:', courses.length);
+  
+  const allPhases = [];
+  
+  courses.forEach((course, courseIndex) => {
+    const coursePhases = [
+      {
+        course_id: course._id,
+        phase_name: `Phase 1: ${course.title.split(' ')[0]} Fundamentals`,
+        phase_description: `Introduction and fundamentals of ${course.title}`,
+        phase_order: 1,
+        created_by: course.creator,
+        icon: `/assets/icons/phase-1-${courseIndex + 1}.png`,
+        path: `/course-${courseIndex + 1}-phase-1`,
+        brief_description: `Brief introduction to ${course.title}`,
+        full_description: `Comprehensive introduction to ${course.title} fundamentals`,
+        hash: `phase1hash${courseIndex + 1}`
+      },
+      {
+        course_id: course._id,
+        phase_name: `Phase 2: ${course.title.split(' ')[0]} Intermediate`,
+        phase_description: `Intermediate concepts in ${course.title}`,
+        phase_order: 2,
+        created_by: course.creator,
+        icon: `/assets/icons/phase-2-${courseIndex + 1}.png`,
+        path: `/course-${courseIndex + 1}-phase-2`,
+        brief_description: `Intermediate concepts in ${course.title}`,
+        full_description: `Deep dive into intermediate concepts of ${course.title}`,
+        hash: `phase2hash${courseIndex + 1}`
+      },
+      {
+        course_id: course._id,
+        phase_name: `Phase 3: ${course.title.split(' ')[0]} Advanced`,
+        phase_description: `Advanced topics in ${course.title}`,
+        phase_order: 3,
+        created_by: course.creator,
+        icon: `/assets/icons/phase-3-${courseIndex + 1}.png`,
+        path: `/course-${courseIndex + 1}-phase-3`,
+        brief_description: `Advanced topics in ${course.title}`,
+        full_description: `Advanced concepts and real-world applications of ${course.title}`,
+        hash: `phase3hash${courseIndex + 1}`
+      },
+      {
+        course_id: course._id,
+        phase_name: `Phase 4: ${course.title.split(' ')[0]} Project`,
+        phase_description: `Capstone project for ${course.title}`,
+        phase_order: 4,
+        created_by: course.creator,
+        icon: `/assets/icons/phase-4-${courseIndex + 1}.png`,
+        path: `/course-${courseIndex + 1}-phase-4`,
+        brief_description: `Capstone project for ${course.title}`,
+        full_description: `Final project and deployment for ${course.title}`,
+        hash: `phase4hash${courseIndex + 1}`
+      }
+    ];
+    
+    allPhases.push(...coursePhases);
+  });
 
-  const phases = [
-    {
-      course: defaultCourseId,
-      title: 'Phase 1: Building static websites using HTML, CSS & Bootstrap',
-      description: 'Learn the fundamentals of web development with HTML, CSS, and Bootstrap',
-      icon_url: '/uploads/phases/phase1-icon.png',
-      order_number: 1,
-      start_date: new Date('2025-03-01'),
-      end_date: new Date('2025-04-01'),
-      is_active: true,
-      is_required: true
-    },
-    {
-      course: defaultCourseId,
-      title: 'Phase 2: JavaScript Programming',
-      description: 'Master JavaScript programming for web development',
-      icon_url: '/uploads/phases/phase2-icon.png',
-      order_number: 2,
-      start_date: new Date('2025-04-01'),
-      end_date: new Date('2025-05-01'),
-      is_active: true,
-      is_required: true
-    },
-    {
-      course: defaultCourseId,
-      title: 'Phase 3: React Frontend Development',
-      description: 'Build modern user interfaces with React',
-      icon_url: '/uploads/phases/phase3-icon.png',
-      order_number: 3,
-      start_date: new Date('2025-05-01'),
-      end_date: new Date('2025-06-01'),
-      is_active: true,
-      is_required: true
-    }
-  ];
-
-  return await Phase.insertMany(phases);
+  const result = await Phase.insertMany(allPhases);
+  console.log(`Created ${result.length} phases for ${courses.length} courses`);
+  
+  return result;
 };
 
-// Seed weeks
+// Seed 4 weeks for 1 phase only
 const seedWeeks = async (phases) => {
+  if (!phases || phases.length === 0) {
+    console.warn('No phases available to link weeks to. Skipping week seeding.');
+    return [];
+  }
+  // Only use the first phase
+  const defaultPhase = phases[0];
+
   const weeks = [
     {
-      phase: phases[0]._id,
-      title: 'Week 1: HTML Fundamentals',
-      description: 'Learn the basics of HTML markup language',
-      order_number: 1,
+      phase_id: defaultPhase._id,
+      week_name: 'Week 1: Getting Started',
+      week_description: 'Introduction to the phase and setup',
+      week_order: 1,
       start_date: new Date('2025-03-01'),
       end_date: new Date('2025-03-08'),
       is_active: true,
       is_required: true,
-      icon_url: '/uploads/weeks/html-icon.png'
+      group_session: {
+        title: 'Group Session 1',
+        description: 'Discussion and Q&A',
+        duration: 60,
+        start_time: new Date('2025-03-03T10:00:00Z'),
+        end_time: new Date('2025-03-03T11:00:00Z')
+      },
+      live_session: {
+        title: 'Live Session 1',
+        description: 'Live coding and walkthrough',
+        duration: 90,
+        start_time: new Date('2025-03-05T14:00:00Z'),
+        end_time: new Date('2025-03-05T15:30:00Z')
+      },
+      created_by: defaultPhase.created_by
     },
     {
-      phase: phases[0]._id,
-      title: 'Week 2: CSS Styling',
-      description: 'Master cascading style sheets for web design',
-      order_number: 2,
+      phase_id: defaultPhase._id,
+      week_name: 'Week 2: Core Concepts',
+      week_description: 'Deep dive into core concepts',
+      week_order: 2,
       start_date: new Date('2025-03-08'),
       end_date: new Date('2025-03-15'),
       is_active: true,
       is_required: true,
-      icon_url: '/uploads/weeks/css-icon.png'
+      group_session: {
+        title: 'Group Session 2',
+        description: 'Workshop and exercises',
+        duration: 60,
+        start_time: new Date('2025-03-10T10:00:00Z'),
+        end_time: new Date('2025-03-10T11:00:00Z')
+      },
+      live_session: {
+        title: 'Live Session 2',
+        description: 'Live coding and Q&A',
+        duration: 90,
+        start_time: new Date('2025-03-12T14:00:00Z'),
+        end_time: new Date('2025-03-12T15:30:00Z')
+      },
+      created_by: defaultPhase.created_by
     },
     {
-      phase: phases[1]._id,
-      title: 'Week 5: JavaScript Basics',
-      description: 'Introduction to JavaScript programming',
-      order_number: 1,
-      start_date: new Date('2025-04-01'),
-      end_date: new Date('2025-04-08'),
+      phase_id: defaultPhase._id,
+      week_name: 'Week 3: Project Work',
+      week_description: 'Hands-on project work',
+      week_order: 3,
+      start_date: new Date('2025-03-15'),
+      end_date: new Date('2025-03-22'),
       is_active: true,
       is_required: true,
-      icon_url: '/uploads/weeks/js-icon.png'
+      group_session: {
+        title: 'Group Session 3',
+        description: 'Project collaboration',
+        duration: 60,
+        start_time: new Date('2025-03-17T10:00:00Z'),
+        end_time: new Date('2025-03-17T11:00:00Z')
+      },
+      live_session: {
+        title: 'Live Session 3',
+        description: 'Project review and feedback',
+        duration: 90,
+        start_time: new Date('2025-03-19T14:00:00Z'),
+        end_time: new Date('2025-03-19T15:30:00Z')
+      },
+      created_by: defaultPhase.created_by
+    },
+    {
+      phase_id: defaultPhase._id,
+      week_name: 'Week 4: Assessment & Wrap-up',
+      week_description: 'Assessment and course wrap-up',
+      week_order: 4,
+      start_date: new Date('2025-03-22'),
+      end_date: new Date('2025-03-29'),
+      is_active: true,
+      is_required: true,
+      group_session: {
+        title: 'Group Session 4',
+        description: 'Assessment discussion',
+        duration: 60,
+        start_time: new Date('2025-03-24T10:00:00Z'),
+        end_time: new Date('2025-03-24T11:00:00Z')
+      },
+      live_session: {
+        title: 'Live Session 4',
+        description: 'Final Q&A and wrap-up',
+        duration: 90,
+        start_time: new Date('2025-03-26T14:00:00Z'),
+        end_time: new Date('2025-03-26T15:30:00Z')
+      },
+      created_by: defaultPhase.created_by
     }
   ];
   
@@ -922,14 +1097,6 @@ const seedCourseInstructors = async (courses, users) => {
       assigned_at: new Date(),
       assigned_by: users[0]._id,
       is_active: true
-    },
-    {
-      course: courses[1]._id,
-      user: users[3]._id,
-      role: 'lead_instructor',
-      assigned_at: new Date(),
-      assigned_by: users[0]._id,
-      is_active: true
     }
   ];
   
@@ -1058,8 +1225,9 @@ const seedGroupSessions = async (weeks, groups, users) => {
 // Seed enrollments
 const seedEnrollments = async (batchCourses, users) => {
   const enrollments = [
+    // Existing enrollments for other students
     {
-      user: users[6]._id,
+      user: users[6]._id, // Student One
       batch_course: batchCourses[0]._id,
       enrollment_date: new Date('2025-02-15'),
       status: 'active',
@@ -1070,7 +1238,7 @@ const seedEnrollments = async (batchCourses, users) => {
       progress_percentage: 0
     },
     {
-      user: users[7]._id,
+      user: users[7]._id, // Student Two
       batch_course: batchCourses[0]._id,
       enrollment_date: new Date('2025-02-16'),
       status: 'active',
@@ -1081,7 +1249,7 @@ const seedEnrollments = async (batchCourses, users) => {
       progress_percentage: 0
     },
     {
-      user: users[8]._id,
+      user: users[8]._id, // Student Three
       batch_course: batchCourses[0]._id,
       enrollment_date: new Date('2025-02-17'),
       status: 'active',
@@ -1092,7 +1260,7 @@ const seedEnrollments = async (batchCourses, users) => {
       progress_percentage: 0
     },
     {
-      user: users[9]._id,
+      user: users[9]._id, // Student Four
       batch_course: batchCourses[0]._id,
       enrollment_date: new Date('2025-02-18'),
       status: 'active',
@@ -1101,6 +1269,125 @@ const seedEnrollments = async (batchCourses, users) => {
       payment_status: 'completed',
       enrolled_by: users[0]._id,
       progress_percentage: 0
+    },
+    
+    // Test student enrolled in 3 different courses
+    {
+      user: users[10]._id, // Test Student - Course 1: Fullstack Web Development
+      batch_course: batchCourses[0]._id,
+      enrollment_date: new Date('2025-02-20'),
+      status: 'active',
+      enrollment_type: 'paid',
+      payment_amount: 1200,
+      payment_status: 'completed',
+      enrolled_by: users[0]._id,
+      progress_percentage: 15
+    },
+    {
+      user: users[10]._id, // Test Student - Course 2: React.js Advanced
+      batch_course: batchCourses[1]._id,
+      enrollment_date: new Date('2025-05-15'),
+      status: 'active',
+      enrollment_type: 'paid',
+      payment_amount: 800,
+      payment_status: 'completed',
+      enrolled_by: users[0]._id,
+      progress_percentage: 25
+    },
+    {
+      user: users[10]._id, // Test Student - Course 3: Node.js Backend
+      batch_course: batchCourses[2]._id,
+      enrollment_date: new Date('2025-08-10'),
+      status: 'active',
+      enrollment_type: 'scholarship',
+      payment_amount: 0,
+      payment_status: 'waived',
+      enrolled_by: users[0]._id,
+      progress_percentage: 5
+    },
+    
+    // NEW: Admin users enrolled in courses
+    // Abenezer Kifle - enrolled in 3 courses
+    {
+      user: users[11]._id, // Abenezer Kifle - Course 1: Fullstack Web Development
+      batch_course: batchCourses[0]._id,
+      enrollment_date: new Date('2025-01-15'),
+      status: 'active',
+      enrollment_type: 'paid',
+      payment_amount: 1200,
+      payment_status: 'completed',
+      enrolled_by: users[0]._id,
+      progress_percentage: 30
+    },
+    {
+      user: users[11]._id, // Abenezer Kifle - Course 2: React.js Advanced
+      batch_course: batchCourses[1]._id,
+      enrollment_date: new Date('2025-04-10'),
+      status: 'active',
+      enrollment_type: 'paid',
+      payment_amount: 800,
+      payment_status: 'completed',
+      enrolled_by: users[0]._id,
+      progress_percentage: 45
+    },
+    {
+      user: users[11]._id, // Abenezer Kifle - Course 3: Node.js Backend
+      batch_course: batchCourses[2]._id,
+      enrollment_date: new Date('2025-07-05'),
+      status: 'active',
+      enrollment_type: 'paid',
+      payment_amount: 900,
+      payment_status: 'completed',
+      enrolled_by: users[0]._id,
+      progress_percentage: 20
+    },
+    
+    // Shime Techane - enrolled in 2 courses
+    {
+      user: users[12]._id, // Shime Techane - Course 1: Fullstack Web Development
+      batch_course: batchCourses[0]._id,
+      enrollment_date: new Date('2025-01-20'),
+      status: 'active',
+      enrollment_type: 'paid',
+      payment_amount: 1200,
+      payment_status: 'completed',
+      enrolled_by: users[0]._id,
+      progress_percentage: 60
+    },
+    {
+      user: users[12]._id, // Shime Techane - Course 2: React.js Advanced
+      batch_course: batchCourses[1]._id,
+      enrollment_date: new Date('2025-04-15'),
+      status: 'active',
+      enrollment_type: 'paid',
+      payment_amount: 800,
+      payment_status: 'completed',
+      enrolled_by: users[0]._id,
+      progress_percentage: 75
+    },
+    
+    // Kasahun Welela - enrolled in 2 courses
+    {
+      user: users[13]._id, // Kasahun Welela - Course 1: Fullstack Web Development
+      batch_course: batchCourses[0]._id,
+      enrollment_date: new Date('2025-01-25'),
+      status: 'active',
+      enrollment_type: 'paid',
+      payment_amount: 1200,
+      payment_status: 'completed',
+      enrolled_by: users[0]._id,
+      progress_percentage: 40
+    },
+    {
+      user: users[13]._id, // Kasahun Welela - Course 3: Node.js Backend
+      batch_course: batchCourses[2]._id,
+      enrollment_date: new Date('2025-07-10'),
+      status: 'active',
+      enrollment_type: 'paid',
+      payment_amount: 900,
+      payment_status: 'completed',
+      enrolled_by: users[0]._id,
+      progress_percentage: 35
     }
   ];
   

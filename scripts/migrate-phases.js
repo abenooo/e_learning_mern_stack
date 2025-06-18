@@ -1,6 +1,7 @@
-require('dotenv').config();
+require('dotenv').config({ path: './.env' });
 const mongoose = require('mongoose');
 const Phase = require('../models/Phase');
+const User = require('../models/User');
 
 // Set strictQuery to false to prepare for Mongoose 7
 mongoose.set('strictQuery', false);
@@ -23,7 +24,7 @@ console.log('Connecting to MongoDB...');
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000,
+  serverSelectionTimeoutMS: 30000,
 })
   .then(() => {
     console.log('MongoDB connected for migration');
@@ -38,41 +39,47 @@ const migratePhases = async () => {
   try {
     console.log('Starting phase migration...');
 
-    // Use the Fullstack Web Application Development course ID
-    const courseId = "6847e72272d00a1416dfd5fe";
-
-    // Get all phases
-    const phases = await Phase.find({});
-    console.log(`Found ${phases.length} phases to migrate`);
-
-    // Update each phase using the native MongoDB driver
-    for (const phase of phases) {
-      try {
-        // Use the native MongoDB driver to update the document
-        await mongoose.connection.db.collection('phases').updateOne(
-          { _id: phase._id },
-          {
-            $set: { course: courseId },
-            $unset: { batch_course: "" }
-          }
-        );
-
-        console.log(`Migrated phase ${phase._id}`);
-      } catch (error) {
-        console.error(`Error migrating phase ${phase._id}:`, error);
-      }
+    // Find an admin user to set as created_by for existing phases
+    const adminUser = await User.findOne({ 'roles.name': 'admin' });
+    let createdByUserId = null;
+    if (adminUser) {
+      createdByUserId = adminUser._id;
+    } else {
+      console.warn('No admin user found. created_by field might not be set for existing phases.');
     }
 
-    // Perform a final update to ensure all documents have the field removed
-    await mongoose.connection.db.collection('phases').updateMany(
+    // Update existing documents: rename fields and add new ones
+    const result = await Phase.updateMany(
       {},
-      { $unset: { batch_course: "" } }
+      {
+        $rename: {
+          title: "phase_name",
+          display_title: "phase_title",
+          description: "phase_description",
+          icon_url: "phase_icon_path",
+          order_number: "phase_order",
+        },
+        $set: {
+          ...(createdByUserId && { created_by: createdByUserId }),
+        },
+        $unset: {
+          start_date: "",
+          end_date: "",
+          is_active: "",
+          is_required: ""
+        }
+      }
     );
+
+    console.log(`${result.nModified} phases updated.`);
 
     console.log('Phase migration completed successfully!');
     process.exit(0);
   } catch (error) {
     console.error('Migration error:', error);
     process.exit(1);
+  } finally {
+    await mongoose.disconnect();
+    console.log('MongoDB disconnected.');
   }
 }; 
