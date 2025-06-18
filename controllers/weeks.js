@@ -8,50 +8,47 @@ const { validationResult } = require('express-validator');
  *     Week:
  *       type: object
  *       required:
+ *         - course
  *         - phase
- *         - title
- *         - order_number
+ *         - week_name
+ *         - week_order
+ *         - created_by
  *       properties:
  *         _id:
  *           type: string
  *           description: The auto-generated id of the week
+ *         course:
+ *           type: string
+ *           description: Reference to the Course ID
  *         phase:
  *           type: string
  *           description: Reference to the phase ID
- *         title:
+ *         week_name:
  *           type: string
- *           description: Week Name (from the form)
- *         display_title:
+ *           description: Name of the week
+ *         week_title:
  *           type: string
- *           description: Week Title (from the form)
- *         description:
+ *           description: Display title of the week
+ *         group_sessions:
  *           type: string
- *           description: Description of the week
- *         order_number:
+ *           description: Text field for group sessions (e.g., JSON string or comma-separated IDs)
+ *         live_sessions:
+ *           type: string
+ *           description: Text field for live sessions (e.g., JSON string or comma-separated IDs)
+ *         week_order:
  *           type: integer
  *           description: Order number of the week
- *         start_date:
+ *         created_by:
+ *           type: string
+ *           description: Reference to the User ID who created the week
+ *         created_at:
  *           type: string
  *           format: date-time
- *           description: Start date of the week
- *         end_date:
+ *           description: Creation timestamp
+ *         updated_at:
  *           type: string
  *           format: date-time
- *           description: End date of the week
- *         is_active:
- *           type: boolean
- *           description: Whether the week is active
- *           default: true
- *         is_required:
- *           type: boolean
- *           description: Whether the week is required
- *           default: true
- *         group_session:
- *           type: string
- *           description: Reference to the Group Session ID
- *         live_session:
- *           type: string
- *           description: Reference to the Live Session ID
+ *           description: Last update timestamp
  */
 
 /**
@@ -72,11 +69,6 @@ const { validationResult } = require('express-validator');
  *           type: string
  *         description: Filter by Course ID (weeks belong to phases which belong to courses)
  *       - in: query
- *         name: is_active
- *         schema:
- *           type: boolean
- *         description: Filter by active status
- *       - in: query
  *         name: page
  *         schema:
  *           type: integer
@@ -92,7 +84,7 @@ const { validationResult } = require('express-validator');
  *         name: sort
  *         schema:
  *           type: string
- *           enum: [order_number, start_date, end_date, created_at]
+ *           enum: [week_order, created_at]
  *         description: Field to sort by
  *       - in: query
  *         name: order
@@ -145,29 +137,27 @@ exports.getWeeks = async (req, res, next) => {
       query.phase = { $in: phaseIds };
     }
     
-    if (req.query.is_active !== undefined) {
-      query.is_active = req.query.is_active === 'true';
-    }
-    
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
     const startIndex = (page - 1) * limit;
     
-    const sortField = req.query.sort || 'order_number';
+    const sortField = req.query.sort || 'week_order';
     const sortOrder = req.query.order === 'desc' ? -1 : 1;
     const sort = { [sortField]: sortOrder };
     
     const weeks = await Week.find(query)
       .populate({
-        path: 'phase',
-        select: 'title display_title course',
+        path: 'phase_id',
+        select: 'phase_name phase_description phase_order course_id',
         populate: {
-          path: 'course',
-          select: 'title'
+          path: 'course_id',
+          select: 'title description price duration_months difficulty_level status course_type delivery_method'
         }
       })
-      .populate('group_session', 'title session_date')
-      .populate('live_session', 'title session_date')
+      .populate({
+        path: 'created_by',
+        select: 'name email'
+      })
       .sort(sort)
       .skip(startIndex)
       .limit(limit);
@@ -228,14 +218,12 @@ exports.getWeek = async (req, res, next) => {
     const week = await Week.findById(req.params.id)
       .populate({
         path: 'phase',
-        select: 'title display_title course',
+        select: 'phase_name phase_title course',
         populate: {
           path: 'course',
           select: 'title'
         }
-      })
-      .populate('group_session', 'title session_date')
-      .populate('live_session', 'title session_date');
+      });
     
     if (!week) {
       console.log(`Week not found with ID: ${req.params.id}`);
@@ -245,7 +233,7 @@ exports.getWeek = async (req, res, next) => {
       });
     }
     
-    console.log(`Found week: ${week.title}`);
+    console.log(`Found week: ${week.week_name}`);
     
     res.status(200).json({
       success: true,
@@ -271,46 +259,19 @@ exports.getWeek = async (req, res, next) => {
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - phase
- *               - title
- *               - order_number
  *             properties:
- *               phase:
- *                 type: string
- *                 description: ID of the phase
- *               title:
- *                 type: string
- *                 description: Week Name (from the form)
- *               display_title:
- *                 type: string
- *                 description: Week Title (from the form)
- *               description:
- *                 type: string
- *                 description: Description of the week
- *               order_number:
- *                 type: integer
- *                 description: Order number of the week
- *               start_date:
- *                 type: string
- *                 format: date-time
- *                 description: Start date of the week
- *               end_date:
- *                 type: string
- *                 format: date-time
- *                 description: End date of the week
- *               is_active:
- *                 type: boolean
- *                 description: Whether the week is active
- *               is_required:
- *                 type: boolean
- *                 description: Whether the week is required
- *               group_session:
- *                 type: string
- *                 description: ID of the Group Session
- *               live_session:
- *                 type: string
- *                 description: ID of the Live Session
+ *               course: { type: string, description: 'Course ID' }
+ *               phase: { type: string, description: 'Phase ID' }
+ *               week_name: { type: string, description: 'Name of the week' }
+ *               week_title: { type: string, description: 'Display title of the week' }
+ *               group_sessions: { type: string, description: 'JSON string or comma-separated IDs of group sessions' }
+ *               live_sessions: { type: string, description: 'JSON string or comma-separated IDs of live sessions' }
+ *               week_order: { type: integer, description: 'Order number of the week' }
+ *             required:
+ *               - course
+ *               - phase
+ *               - week_name
+ *               - week_order
  *     responses:
  *       201:
  *         description: Week created successfully
@@ -319,19 +280,19 @@ exports.getWeek = async (req, res, next) => {
  *             schema:
  *               type: object
  *               properties:
- *                 success:
- *                   type: boolean
+ *                 success: { type: boolean }
  *                 data:
  *                   $ref: '#/components/schemas/Week'
  *       400:
  *         description: Validation error
  *       401:
  *         description: Unauthorized
+ *       500:
+ *         description: Server error
  */
 exports.createWeek = async (req, res, next) => {
   try {
     console.log('Create week request received');
-    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('Validation errors:', errors.array());
@@ -341,31 +302,15 @@ exports.createWeek = async (req, res, next) => {
       });
     }
 
-    if (!req.body.phase) {
-      return res.status(400).json({
-        success: false,
-        error: 'Phase ID is required'
-      });
-    }
-    
+    // Add created_by to the request body
+    req.body.created_by = req.user.id;
+
     const week = await Week.create(req.body);
-    const populatedWeek = await Week.findById(week._id)
-      .populate({
-        path: 'phase',
-        select: 'title display_title course',
-        populate: {
-          path: 'course',
-          select: 'title'
-        }
-      })
-      .populate('group_session', 'title session_date')
-      .populate('live_session', 'title session_date');
-    
     console.log(`Week created with ID: ${week._id}`);
-    
+
     res.status(201).json({
       success: true,
-      data: populatedWeek
+      data: week
     });
   } catch (error) {
     console.error('Create week error:', error);
@@ -395,38 +340,13 @@ exports.createWeek = async (req, res, next) => {
  *           schema:
  *             type: object
  *             properties:
- *               title:
- *                 type: string
- *                 description: Week Name (from the form)
- *               display_title:
- *                 type: string
- *                 description: Week Title (from the form)
- *               description:
- *                 type: string
- *                 description: Description of the week
- *               order_number:
- *                 type: integer
- *                 description: Order number of the week
- *               start_date:
- *                 type: string
- *                 format: date-time
- *                 description: Start date of the week
- *               end_date:
- *                 type: string
- *                 format: date-time
- *                 description: End date of the week
- *               is_active:
- *                 type: boolean
- *                 description: Whether the week is active
- *               is_required:
- *                 type: boolean
- *                 description: Whether the week is required
- *               group_session:
- *                 type: string
- *                 description: ID of the Group Session
- *               live_session:
- *                 type: string
- *                 description: ID of the Live Session
+ *               course: { type: string, description: 'Course ID' }
+ *               phase: { type: string, description: 'Phase ID' }
+ *               week_name: { type: string, description: 'Name of the week' }
+ *               week_title: { type: string, description: 'Display title of the week' }
+ *               group_sessions: { type: string, description: 'JSON string or comma-separated IDs of group sessions' }
+ *               live_sessions: { type: string, description: 'JSON string or comma-separated IDs of live sessions' }
+ *               week_order: { type: integer, description: 'Order number of the week' }
  *     responses:
  *       200:
  *         description: Week updated successfully
@@ -435,21 +355,19 @@ exports.createWeek = async (req, res, next) => {
  *             schema:
  *               type: object
  *               properties:
- *                 success:
- *                   type: boolean
+ *                 success: { type: boolean }
  *                 data:
  *                   $ref: '#/components/schemas/Week'
  *       400:
  *         description: Validation error
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Week not found
+ *       500:
+ *         description: Server error
  */
 exports.updateWeek = async (req, res, next) => {
   try {
     console.log(`Update week request received for ID: ${req.params.id}`);
-    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('Validation errors:', errors.array());
@@ -458,9 +376,8 @@ exports.updateWeek = async (req, res, next) => {
         errors: errors.array()
       });
     }
-    
+
     let week = await Week.findById(req.params.id);
-    
     if (!week) {
       console.log(`Week not found with ID: ${req.params.id}`);
       return res.status(404).json({
@@ -468,28 +385,14 @@ exports.updateWeek = async (req, res, next) => {
         error: 'Week not found'
       });
     }
-    
-    week = await Week.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true
-      }
-    )
-      .populate({
-        path: 'phase',
-        select: 'title display_title course',
-        populate: {
-          path: 'course',
-          select: 'title'
-        }
-      })
-      .populate('group_session', 'title session_date')
-      .populate('live_session', 'title session_date');
-    
-    console.log(`Week updated: ${week.title}`);
-    
+
+    week = await Week.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true
+    });
+
+    console.log(`Week with ID: ${week._id} updated successfully`);
+
     res.status(200).json({
       success: true,
       data: week
@@ -518,26 +421,16 @@ exports.updateWeek = async (req, res, next) => {
  *     responses:
  *       200:
  *         description: Week deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: object
- *       401:
- *         description: Unauthorized
  *       404:
  *         description: Week not found
+ *       500:
+ *         description: Server error
  */
 exports.deleteWeek = async (req, res, next) => {
   try {
     console.log(`Delete week request received for ID: ${req.params.id}`);
-    
+
     const week = await Week.findById(req.params.id);
-    
     if (!week) {
       console.log(`Week not found with ID: ${req.params.id}`);
       return res.status(404).json({
@@ -545,10 +438,10 @@ exports.deleteWeek = async (req, res, next) => {
         error: 'Week not found'
       });
     }
-    
-    await Week.findByIdAndDelete(req.params.id);
-    console.log(`Week deleted: ${week.title}`);
-    
+
+    await week.deleteOne();
+    console.log(`Week with ID: ${req.params.id} deleted successfully`);
+
     res.status(200).json({
       success: true,
       data: {}
