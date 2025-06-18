@@ -1,44 +1,38 @@
 const mongoose = require('mongoose');
 
 const PhaseSchema = new mongoose.Schema({
-  course: {
+  course_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Course',
     required: true
   },
-  title: {
+  phase_name: {
     type: String,
-    required: [true, 'Phase title is required'],
+    required: [true, 'Phase name is required'],
     trim: true
   },
-  display_title: {
-    type: String,
-    trim: true,
-  },
-  description: {
+  phase_description: {
     type: String
   },
-  icon_url: {
-    type: String
-  },
-  order_number: {
+  phase_order: {
     type: Number,
-    required: [true, 'Order number is required']
+    required: [true, 'Phase order is required']
   },
-  start_date: {
-    type: Date
+  created_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
-  end_date: {
-    type: Date
-  },
-  is_active: {
-    type: Boolean,
-    default: true
-  },
-  is_required: {
-    type: Boolean,
-    default: true
-  },
+  start_date: Date,
+  end_date: Date,
+  is_active: { type: Boolean, default: true },
+  is_required: { type: Boolean, default: true },
+  // New fields for frontend-friendly response
+  icon: { type: String }, // URL or path to icon
+  path: { type: String }, // URL path for the phase
+  brief_description: { type: String },
+  full_description: { type: String },
+  hash: { type: String }
 }, {
   timestamps: {
     createdAt: 'created_at',
