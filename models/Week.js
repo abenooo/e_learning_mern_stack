@@ -1,20 +1,22 @@
 const mongoose = require('mongoose');
 
 const WeekSchema = new mongoose.Schema({
-  phase: {
+  phase_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Phase',
     required: true
   },
-  title: {
+  week_name: {
     type: String,
     required: [true, 'Week Name is required'],
     trim: true
   },
-
-  order_number: {
+  week_description: {
+    type: String
+  },
+  week_order: {
     type: Number,
-    required: [true, 'Order number is required']
+    required: [true, 'Week order is required']
   },
   start_date: {
     type: Date
@@ -31,14 +33,23 @@ const WeekSchema = new mongoose.Schema({
     default: true
   },
   group_session: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'GroupSession',
-    required: false
+    title: String,
+    description: String,
+    duration: Number,
+    start_time: Date,
+    end_time: Date
   },
   live_session: {
+    title: String,
+    description: String,
+    duration: Number,
+    start_time: Date,
+    end_time: Date
+  },
+  created_by: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'LiveSession',
-    required: false
+    ref: 'User',
+    required: true
   }
 }, {
   timestamps: {
