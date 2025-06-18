@@ -3,6 +3,7 @@ const CourseInstructor = require('../models/CourseInstructor');
 const UserRole = require('../models/UserRole');
 const { validationResult } = require('express-validator');
 const { upload, cloudinary } = require('../config/cloudinary');
+const User = require('../models/User');
 
 /**
  * @swagger
@@ -32,6 +33,11 @@ const { upload, cloudinary } = require('../config/cloudinary');
  *           type: string
  *           enum: [online, offline, hybrid]
  *       - in: query
+ *         name: payment_status
+ *         schema:
+ *           type: string
+ *           enum: [pending, paid, failed]
+ *       - in: query
  *         name: page
  *         schema:
  *           type: integer
@@ -52,6 +58,20 @@ const { upload, cloudinary } = require('../config/cloudinary');
  *           type: string
  *           enum: [asc, desc]
  *           default: desc
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved courses
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 count: { type: integer, example: 1 }
+ *                 pagination: { type: object }
+ *                 data: { type: array, items: { $ref: '#/components/schemas/Course' } }
+ *       500:
+ *         description: Server error
  */
 const getCourses = async (req, res, next) => {
   try {
@@ -78,6 +98,11 @@ const getCourses = async (req, res, next) => {
     // Filter by delivery method
     if (req.query.delivery_method) {
       query.delivery_method = req.query.delivery_method;
+    }
+
+    // Filter by payment status
+    if (req.query.payment_status) {
+      query.payment_status = req.query.payment_status;
     }
     
     // Filter active courses by default
@@ -180,6 +205,44 @@ const getCourse = async (req, res, next) => {
  *     tags: [Courses]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string, example: 'New Course Title' }
+ *               description: { type: string, example: 'Description of the new course.' }
+ *               course_icon_path: { type: string, format: url, example: 'http://example.com/icon.png' }
+ *               course_url_path: { type: string, example: 'new-course-title' }
+ *               price: { type: number, format: float, example: 99.99 }
+ *               difficulty_level: { type: string, enum: [beginner, intermediate, advanced], example: beginner }
+ *               status: { type: string, enum: [draft, published, archived], example: draft }
+ *               duration_months: { type: number, example: 3 }
+ *               course_type: { type: string, enum: [paid, free], example: paid }
+ *               delivery_method: { type: string, enum: [online, offline, hybrid], example: online }
+ *               payment_status: { type: string, enum: [pending, paid, failed], example: pending }
+ *             required:
+ *               - title
+ *               - description
+ *               - duration_months
+ *     responses:
+ *       201:
+ *         description: Course created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data: { $ref: '#/components/schemas/Course' }
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
  */
 const createCourse = async (req, res, next) => {
   try {
@@ -198,9 +261,14 @@ const createCourse = async (req, res, next) => {
     // Add creator to request body
     req.body.creator = req.user.id;
     
-    // Handle thumbnail upload
-    if (req.file) {
-      req.body.thumbnail = req.file.path; // Cloudinary URL
+    // Handle file uploads
+    if (req.files) {
+      if (req.files.course_icon_path) {
+        req.body.course_icon_path = req.files.course_icon_path[0].path;
+      }
+      if (req.files.course_url_path) {
+        req.body.course_url_path = req.files.course_url_path[0].path;
+      }
     }
     
     // Set default values if not provided
@@ -218,6 +286,10 @@ const createCourse = async (req, res, next) => {
     
     if (!req.body.delivery_method) {
       req.body.delivery_method = 'online';
+    }
+
+    if (!req.body.payment_status) {
+      req.body.payment_status = 'pending';
     }
     
     // Create course
@@ -248,6 +320,42 @@ const createCourse = async (req, res, next) => {
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string, example: 'Updated Course Title' }
+ *               description: { type: string, example: 'Updated description of the course.' }
+ *               course_icon_path: { type: string, format: url, example: 'http://example.com/updated_icon.png' }
+ *               course_url_path: { type: string, example: 'updated-course-title' }
+ *               price: { type: number, format: float, example: 129.99 }
+ *               difficulty_level: { type: string, enum: [beginner, intermediate, advanced], example: advanced }
+ *               status: { type: string, enum: [draft, published, archived], example: published }
+ *               duration_months: { type: number, example: 6 }
+ *               course_type: { type: string, enum: [paid, free], example: free }
+ *               delivery_method: { type: string, enum: [online, offline, hybrid], example: hybrid }
+ *               payment_status: { type: string, enum: [pending, paid, failed], example: paid }
+ *     responses:
+ *       200:
+ *         description: Course updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data: { $ref: '#/components/schemas/Course' }
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Course not found
+ *       500:
+ *         description: Server error
  */
 const updateCourse = async (req, res, next) => {
   try {
@@ -263,7 +371,7 @@ const updateCourse = async (req, res, next) => {
       });
     }
     
-    // Find course
+    // Find course by ID
     let course = await Course.findById(req.params.id);
     
     if (!course) {
@@ -274,44 +382,23 @@ const updateCourse = async (req, res, next) => {
       });
     }
     
-    // Check if user is authorized to update
-    const userRoles = await UserRole.find({ 
-      user: req.user.id,
-      is_active: true
-    }).populate('role');
-
-    const isAdmin = userRoles.some(userRole => 
-      userRole.role.name === 'admin' || userRole.role.name === 'super_admin'
-    );
-
-    if (course.creator.toString() !== req.user.id && !isAdmin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Not authorized to update this course'
-      });
-    }
-    
-    // Handle thumbnail upload
-    if (req.file) {
-      // Delete old thumbnail from Cloudinary if it exists
-      if (course.thumbnail) {
-        const publicId = course.thumbnail.split('/').pop().split('.')[0];
-        await cloudinary.uploader.destroy(publicId);
+    // Handle file uploads for course_icon_path and course_url_path
+    if (req.files) {
+      if (req.files.course_icon_path) {
+        req.body.course_icon_path = req.files.course_icon_path[0].path;
       }
-      req.body.thumbnail = req.file.path; // Update with new Cloudinary URL
+      if (req.files.course_url_path) {
+        req.body.course_url_path = req.files.course_url_path[0].path;
+      }
     }
-    
+
     // Update course
-    course = await Course.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true
-      }
-    );
+    course = await Course.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true
+    });
     
-    console.log(`Course updated: ${course.title}`);
+    console.log(`Course updated with ID: ${course._id}`);
     
     res.status(200).json({
       success: true,
@@ -337,14 +424,24 @@ const updateCourse = async (req, res, next) => {
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: Course deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden, not authorized to delete this course
+ *       404:
+ *         description: Course not found
+ *       500:
+ *         description: Server error
  */
 const deleteCourse = async (req, res, next) => {
   try {
     console.log(`Delete course request received for ID: ${req.params.id}`);
-    
-    // Find course
+
     const course = await Course.findById(req.params.id);
-    
+
     if (!course) {
       console.log(`Course not found with ID: ${req.params.id}`);
       return res.status(404).json({
@@ -352,34 +449,15 @@ const deleteCourse = async (req, res, next) => {
         error: 'Course not found'
       });
     }
-    
-    // Check if user is authorized to delete
-    const userRoles = await UserRole.find({ 
-      user: req.user.id,
-      is_active: true
-    }).populate('role');
 
-    const isAdmin = userRoles.some(userRole => 
-      userRole.role.name === 'admin' || userRole.role.name === 'super_admin'
-    );
+    // Remove course instructors associations
+    await CourseInstructor.deleteMany({ course: req.params.id });
 
-    if (course.creator.toString() !== req.user.id && !isAdmin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Not authorized to delete this course'
-      });
-    }
-    
-    // Delete thumbnail from Cloudinary if it exists
-    if (course.thumbnail) {
-      const publicId = course.thumbnail.split('/').pop().split('.')[0];
-      await cloudinary.uploader.destroy(publicId);
-    }
-    
     // Delete course
-    await Course.findByIdAndDelete(req.params.id);
-    console.log(`Course deleted: ${course.title}`);
-    
+    await course.deleteOne(); // Use deleteOne() for Mongoose 6+
+
+    console.log(`Course with ID: ${req.params.id} deleted successfully`);
+
     res.status(200).json({
       success: true,
       data: {}
@@ -394,7 +472,7 @@ const deleteCourse = async (req, res, next) => {
  * @swagger
  * /courses/{id}/instructors:
  *   get:
- *     summary: Get course instructors
+ *     summary: Get all instructors assigned to a specific course
  *     tags: [Courses]
  *     parameters:
  *       - in: path
@@ -402,6 +480,13 @@ const deleteCourse = async (req, res, next) => {
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved course instructors
+ *       404:
+ *         description: Course not found
+ *       500:
+ *         description: Server error
  */
 const getCourseInstructors = async (req, res, next) => {
   try {
@@ -437,113 +522,157 @@ const getCourseInstructors = async (req, res, next) => {
   }
 };
 
-// @desc    Assign instructor to course
-// @route   POST /api/courses/:id/instructors
-// @access  Private
+/**
+ * @swagger
+ * /courses/{id}/instructors:
+ *   post:
+ *     summary: Assign an instructor to a course
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userId: { type: string, example: '60d0fe4f5311236168a109cc' }
+ *             required:
+ *               - userId
+ *     responses:
+ *       200:
+ *         description: Instructor assigned successfully
+ *       400:
+ *         description: Bad request (e.g., user not found, user is not an instructor, instructor already assigned)
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Course not found
+ *       500:
+ *         description: Server error
+ */
 const assignInstructor = async (req, res, next) => {
   try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-    
-    const { user, role } = req.body;
-    
-    // Check if course exists
+    console.log(`Assign instructor request received for course ID: ${req.params.id}`);
+    const { userId } = req.body;
+
     const course = await Course.findById(req.params.id);
-    
     if (!course) {
+      console.log(`Course not found with ID: ${req.params.id}`);
       return res.status(404).json({
         success: false,
         error: 'Course not found'
       });
     }
-    
-    // Check if instructor is already assigned
-    const existingInstructor = await CourseInstructor.findOne({
-      course: course._id,
-      user
-    });
-    
-    if (existingInstructor) {
-      // If instructor exists but is inactive, reactivate
-      if (!existingInstructor.is_active) {
-        existingInstructor.is_active = true;
-        existingInstructor.role = role;
-        existingInstructor.assigned_by = req.user.id;
-        existingInstructor.assigned_at = Date.now();
-        await existingInstructor.save();
-        
-        return res.status(200).json({
-          success: true,
-          data: existingInstructor
-        });
-      }
-      
+
+    const user = await User.findById(userId);
+    if (!user) {
+      console.log(`User not found with ID: ${userId}`);
+      return res.status(400).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const isInstructor = await UserRole.findOne({ user: userId, 'role.name': 'instructor', is_active: true });
+    if (!isInstructor) {
+      console.log(`User ${userId} is not an active instructor`);
+      return res.status(400).json({
+        success: false,
+        error: 'User is not an active instructor'
+      });
+    }
+
+    const existingAssignment = await CourseInstructor.findOne({ course: req.params.id, user: userId });
+    if (existingAssignment) {
+      console.log(`Instructor ${userId} is already assigned to course ${req.params.id}`);
       return res.status(400).json({
         success: false,
         error: 'Instructor already assigned to this course'
       });
     }
-    
-    // Assign instructor to course
+
     const courseInstructor = await CourseInstructor.create({
-      course: course._id,
-      user,
-      role,
+      course: req.params.id,
+      user: userId,
       assigned_by: req.user.id
     });
-    
-    res.status(201).json({
+
+    console.log(`Instructor ${userId} assigned to course ${req.params.id}`);
+
+    res.status(200).json({
       success: true,
       data: courseInstructor
     });
   } catch (error) {
+    console.error('Assign instructor error:', error);
     next(error);
   }
 };
 
-// @desc    Remove instructor from course
-// @route   DELETE /api/courses/:id/instructors/:userId
-// @access  Private
+/**
+ * @swagger
+ * /courses/{id}/instructors/{userId}:
+ *   delete:
+ *     summary: Remove an instructor from a course
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Instructor removed successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden, not authorized to remove this instructor
+ *       404:
+ *         description: Course or instructor not found for this course
+ *       500:
+ *         description: Server error
+ */
 const removeInstructor = async (req, res, next) => {
   try {
-    // Check if course exists
-    const course = await Course.findById(req.params.id);
-    
-    if (!course) {
-      return res.status(404).json({
-        success: false,
-        error: 'Course not found'
-      });
-    }
-    
-    // Find course instructor
-    const courseInstructor = await CourseInstructor.findOne({
-      course: course._id,
-      user: req.params.userId,
-      is_active: true
+    console.log(`Remove instructor request received for course ID: ${req.params.id}, user ID: ${req.params.userId}`);
+
+    const courseInstructor = await CourseInstructor.findOneAndDelete({
+      course: req.params.id,
+      user: req.params.userId
     });
-    
+
     if (!courseInstructor) {
+      console.log(`Instructor ${req.params.userId} not found for course ${req.params.id}`);
       return res.status(404).json({
         success: false,
-        error: 'Course instructor not found'
+        error: 'Instructor not found for this course'
       });
     }
-    
-    // Deactivate instructor
-    courseInstructor.is_active = false;
-    courseInstructor.removed_by = req.user.id;
-    courseInstructor.removed_at = Date.now();
-    await courseInstructor.save();
-    
+
+    console.log(`Instructor ${req.params.userId} removed from course ${req.params.id}`);
+
     res.status(200).json({
       success: true,
       data: {}
     });
   } catch (error) {
+    console.error('Remove instructor error:', error);
     next(error);
   }
 };
