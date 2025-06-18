@@ -205,10 +205,11 @@ exports.createEnrollment = async (req, res, next) => {
       });
     }
     
-    // Check if user is already enrolled
+    // Check if user is already enrolled in this batch course
     const existingEnrollment = await Enrollment.findOne({
       user: req.body.user,
-      batch_course: req.body.batch_course
+      batch_course: req.body.batch_course,
+      status: { $in: ['active', 'completed'] }
     });
     
     if (existingEnrollment) {
@@ -219,16 +220,35 @@ exports.createEnrollment = async (req, res, next) => {
     }
     
     // Create enrollment
-    const enrollment = await Enrollment.create({
-      ...req.body,
-      enrolled_by: req.user.id
-    });
+    const enrollmentData = {
+      user: req.body.user,
+      batch_course: req.body.batch_course,
+      enrollment_type: req.body.enrollment_type || 'paid',
+      payment_amount: req.body.payment_amount || 0,
+      payment_status: req.body.payment_status || 'pending',
+      enrolled_by: req.user ? req.user.id : null
+    };
     
-    console.log(`Enrollment created with ID: ${enrollment._id}`);
+    const enrollment = await Enrollment.create(enrollmentData);
+    
+    // Populate the created enrollment
+    const populatedEnrollment = await Enrollment.findById(enrollment._id)
+      .populate('user', 'name email')
+      .populate({
+        path: 'batch_course',
+        populate: {
+          path: 'batch',
+          select: 'name'
+        }
+      })
+      .populate('enrolled_by', 'name');
+    
+    console.log(`Enrollment created successfully for user: ${populatedEnrollment.user.name}`);
     
     res.status(201).json({
       success: true,
-      data: enrollment
+      message: 'Enrollment created successfully',
+      data: populatedEnrollment
     });
   } catch (error) {
     console.error('Create enrollment error:', error);
@@ -252,50 +272,53 @@ exports.updateEnrollment = async (req, res, next) => {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log('Validation errors:', errors.array());
       return res.status(400).json({
         success: false,
         errors: errors.array()
       });
     }
     
-    let enrollment = await Enrollment.findById(req.params.id);
+    const enrollment = await Enrollment.findById(req.params.id);
     
     if (!enrollment) {
-      console.log(`Enrollment not found with ID: ${req.params.id}`);
       return res.status(404).json({
         success: false,
         error: 'Enrollment not found'
       });
     }
     
-    // If status is being updated to completed, set completion_date
-    if (req.body.status === 'completed' && !enrollment.completion_date) {
-      req.body.completion_date = Date.now();
+    // Update fields
+    const updateFields = {};
+    if (req.body.status !== undefined) updateFields.status = req.body.status;
+    if (req.body.payment_status !== undefined) updateFields.payment_status = req.body.payment_status;
+    if (req.body.progress_percentage !== undefined) updateFields.progress_percentage = req.body.progress_percentage;
+    
+    // If status is being set to completed, set completion date
+    if (req.body.status === 'completed' && enrollment.status !== 'completed') {
+      updateFields.completion_date = new Date();
     }
     
-    enrollment = await Enrollment.findByIdAndUpdate(
+    const updatedEnrollment = await Enrollment.findByIdAndUpdate(
       req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true
+      updateFields,
+      { new: true, runValidators: true }
+    )
+    .populate('user', 'name email')
+    .populate({
+      path: 'batch_course',
+      populate: {
+        path: 'batch',
+        select: 'name'
       }
-    ).populate('user', 'name email')
-      .populate({
-        path: 'batch_course',
-        populate: {
-          path: 'batch',
-          select: 'name'
-        }
-      })
-      .populate('enrolled_by', 'name');
+    })
+    .populate('enrolled_by', 'name');
     
-    console.log(`Enrollment updated for user: ${enrollment.user.name}`);
+    console.log(`Enrollment updated successfully for user: ${updatedEnrollment.user.name}`);
     
     res.status(200).json({
       success: true,
-      data: enrollment
+      message: 'Enrollment updated successfully',
+      data: updatedEnrollment
     });
   } catch (error) {
     console.error('Update enrollment error:', error);
@@ -319,20 +342,19 @@ exports.deleteEnrollment = async (req, res, next) => {
     const enrollment = await Enrollment.findById(req.params.id);
     
     if (!enrollment) {
-      console.log(`Enrollment not found with ID: ${req.params.id}`);
       return res.status(404).json({
         success: false,
         error: 'Enrollment not found'
       });
     }
     
-    await enrollment.remove();
+    await Enrollment.findByIdAndDelete(req.params.id);
     
-    console.log(`Enrollment deleted for user: ${enrollment.user.name}`);
+    console.log(`Enrollment deleted successfully for ID: ${req.params.id}`);
     
     res.status(200).json({
       success: true,
-      data: {}
+      message: 'Enrollment deleted successfully'
     });
   } catch (error) {
     console.error('Delete enrollment error:', error);
@@ -351,16 +373,15 @@ exports.getUserEnrollments = async (req, res, next) => {
   try {
     console.log(`Get user enrollments request received for user ID: ${req.params.userId}`);
     
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
-    const startIndex = (page - 1) * limit;
+    const query = { user: req.params.userId };
     
-    let query = { user: req.params.userId };
+    // Filter by status if provided
     if (req.query.status) {
       query.status = req.query.status;
     }
     
     const enrollments = await Enrollment.find(query)
+      .populate('user', 'name email')
       .populate({
         path: 'batch_course',
         populate: {
@@ -368,23 +389,14 @@ exports.getUserEnrollments = async (req, res, next) => {
           select: 'name'
         }
       })
-      .sort({ created_at: -1 })
-      .limit(limit)
-      .skip(startIndex);
-    
-    const total = await Enrollment.countDocuments(query);
+      .populate('enrolled_by', 'name')
+      .sort({ created_at: -1 });
     
     console.log(`Found ${enrollments.length} enrollments for user`);
     
     res.status(200).json({
       success: true,
       count: enrollments.length,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      },
       data: enrollments
     });
   } catch (error) {
@@ -404,34 +416,30 @@ exports.getBatchCourseEnrollments = async (req, res, next) => {
   try {
     console.log(`Get batch course enrollments request received for batch course ID: ${req.params.batchCourseId}`);
     
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
-    const startIndex = (page - 1) * limit;
+    const query = { batch_course: req.params.batchCourseId };
     
-    let query = { batch_course: req.params.batchCourseId };
+    // Filter by status if provided
     if (req.query.status) {
       query.status = req.query.status;
     }
     
     const enrollments = await Enrollment.find(query)
       .populate('user', 'name email')
-      .sort({ created_at: -1 })
-      .limit(limit)
-      .skip(startIndex);
-    
-    const total = await Enrollment.countDocuments(query);
+      .populate({
+        path: 'batch_course',
+        populate: {
+          path: 'batch',
+          select: 'name'
+        }
+      })
+      .populate('enrolled_by', 'name')
+      .sort({ created_at: -1 });
     
     console.log(`Found ${enrollments.length} enrollments for batch course`);
     
     res.status(200).json({
       success: true,
       count: enrollments.length,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      },
       data: enrollments
     });
   } catch (error) {
@@ -446,41 +454,341 @@ exports.getBatchCourseEnrollments = async (req, res, next) => {
  *   patch:
  *     summary: Update enrollment progress
  *     tags: [Enrollments]
- *     security:
- *       - bearerAuth: []
  */
 exports.updateEnrollmentProgress = async (req, res, next) => {
   try {
     console.log(`Update enrollment progress request received for ID: ${req.params.id}`);
     
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+    
     const enrollment = await Enrollment.findById(req.params.id);
     
     if (!enrollment) {
-      console.log(`Enrollment not found with ID: ${req.params.id}`);
       return res.status(404).json({
         success: false,
         error: 'Enrollment not found'
       });
     }
     
-    if (req.body.progress_percentage < 0 || req.body.progress_percentage > 100) {
-      return res.status(400).json({
-        success: false,
-        error: 'Progress percentage must be between 0 and 100'
-      });
-    }
+    const updatedEnrollment = await Enrollment.findByIdAndUpdate(
+      req.params.id,
+      { progress_percentage: req.body.progress_percentage },
+      { new: true, runValidators: true }
+    )
+    .populate('user', 'name email')
+    .populate({
+      path: 'batch_course',
+      populate: {
+        path: 'batch',
+        select: 'name'
+      }
+    })
+    .populate('enrolled_by', 'name');
     
-    enrollment.progress_percentage = req.body.progress_percentage;
-    await enrollment.save();
-    
-    console.log(`Progress updated for enrollment: ${enrollment._id}`);
+    console.log(`Enrollment progress updated successfully for user: ${updatedEnrollment.user.name}`);
     
     res.status(200).json({
       success: true,
-      data: enrollment
+      message: 'Enrollment progress updated successfully',
+      data: updatedEnrollment
     });
   } catch (error) {
     console.error('Update enrollment progress error:', error);
+    next(error);
+  }
+};
+
+/**
+ * @swagger
+ * enrollments/user/{userId}/enrolled-batches:
+ *   get:
+ *     summary: Get enrolled batches for a user with course details
+ *     tags: [Enrollments]
+ */
+exports.getUserEnrolledBatches = async (req, res, next) => {
+  try {
+    console.log(`Get enrolled batches request received for user ID: ${req.params.userId}`);
+    
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const startIndex = (page - 1) * limit;
+    
+    // Find active enrollments for the user
+    const enrollments = await Enrollment.find({ 
+      user: req.params.userId, 
+      status: 'active' 
+    })
+    .populate({
+      path: 'batch_course',
+      populate: [
+        {
+          path: 'batch',
+          select: 'name full_name description start_date end_date is_active batch_flyer_img status'
+        },
+        {
+          path: 'course',
+          select: 'title description thumbnail logo_url duration_months price difficulty_level status'
+        }
+      ]
+    })
+    .sort({ created_at: -1 })
+    .skip(startIndex)
+    .limit(limit);
+    
+    const total = await Enrollment.countDocuments({ 
+      user: req.params.userId, 
+      status: 'active' 
+    });
+    
+    // Transform the data to match the desired format
+    const enrolledBatches = enrollments.map(enrollment => {
+      const batch = enrollment.batch_course.batch;
+      const course = enrollment.batch_course.course;
+      
+      return {
+        id: batch._id,
+        name: batch.name,
+        full_name: batch.full_name,
+        description: batch.description || "",
+        hash: batch._id.toString().slice(-16), // Generate a hash-like string
+        batch_flyer_img: batch.batch_flyer_img || null,
+        is_active: batch.is_active,
+        start_date: batch.start_date ? new Date(batch.start_date).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        }) : null,
+        graduation_date: batch.end_date ? new Date(batch.end_date).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        }) : null,
+        course: {
+          name: course.title,
+          icon: course.logo_url || course.thumbnail || null,
+          description: course.description,
+          path: `/course-${course._id.toString().slice(-8)}`,
+          duration: `${course.duration_months} Months`,
+          hash: course._id.toString().slice(-16)
+        }
+      };
+    });
+    
+    console.log(`Found ${enrolledBatches.length} enrolled batches for user`);
+    
+    res.status(200).json({
+      success: true,
+      message: "Enrolled batches retrieved successfully.",
+      data: {
+        enrolledBatches,
+        pagination: {
+          currentPage: page,
+          pageSize: limit,
+          total
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get enrolled batches error:', error);
+    next(error);
+  }
+};
+
+/**
+ * @swagger
+ * enrollments/user/{userId}/course/{courseId}/phases:
+ *   get:
+ *     summary: Get phases for a specific enrolled course
+ *     tags: [Enrollments]
+ */
+exports.getEnrolledCoursePhases = async (req, res, next) => {
+  try {
+    console.log(`Get enrolled course phases request received for user ID: ${req.params.userId}, course ID: ${req.params.courseId}`);
+    
+    // First, get all active enrollments for the user
+    const enrollments = await Enrollment.find({
+      user: req.params.userId,
+      status: 'active'
+    }).populate({
+      path: 'batch_course',
+      populate: {
+        path: 'course'
+      }
+    });
+    
+    if (!enrollments || enrollments.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User is not enrolled in any course'
+      });
+    }
+    
+    // Find the enrollment that matches the requested course
+    const requestedCourseId = req.params.courseId;
+    let targetEnrollment = null;
+    let targetCourse = null;
+    
+    for (const enrollment of enrollments) {
+      if (!enrollment.batch_course.course) continue;
+      
+      const course = enrollment.batch_course.course;
+      const courseId = course._id.toString();
+      const courseHash = courseId.slice(-16);
+      
+      // Check if the requested course ID matches either the full ID or the hash
+      if (courseId === requestedCourseId || courseHash === requestedCourseId) {
+        targetEnrollment = enrollment;
+        targetCourse = course;
+        break;
+      }
+    }
+    
+    if (!targetEnrollment || !targetCourse) {
+      return res.status(404).json({
+        success: false,
+        error: 'User is not enrolled in this specific course'
+      });
+    }
+    
+    console.log(`Found matching course: ${targetCourse.title} (ID: ${targetCourse._id})`);
+    
+    // Get phases for this course using the full course ID
+    const Phase = require('../models/Phase');
+    const phases = await Phase.find({ 
+      course_id: targetCourse._id 
+    })
+    .populate('course_id', 'title description')
+    .sort({ phase_order: 1 });
+    
+    console.log(`Found ${phases.length} phases for course: ${targetCourse.title}`);
+    
+    // Transform the phases to match the desired format
+    const transformedPhases = phases.map(phase => ({
+      id: phase._id,
+      name: phase.phase_name,
+      path: phase.path || `/phase-${phase.phase_order}`,
+      brief_description: phase.brief_description || phase.phase_description,
+      full_description: phase.full_description || phase.phase_description,
+      icon: phase.icon || null,
+      hash: phase.hash || phase._id.toString().slice(-16),
+      has_access: true, // User is enrolled, so they have access
+      order: phase.phase_order
+    }));
+    
+    res.status(200).json({
+      success: true,
+      message: "Phases retrieved successfully.",
+      data: {
+        phases: transformedPhases,
+        total: transformedPhases.length
+      }
+    });
+  } catch (error) {
+    console.error('Get enrolled course phases error:', error);
+    next(error);
+  }
+};
+
+/**
+ * @swagger
+ * enrollments/user/{userId}/phase/{phaseId}/weeks:
+ *   get:
+ *     summary: Get weeks for a specific phase
+ *     tags: [Enrollments]
+ */
+exports.getPhaseWeeks = async (req, res, next) => {
+  try {
+    console.log(`Get phase weeks request received for user ID: ${req.params.userId}, phase ID: ${req.params.phaseId}`);
+    
+    // First, verify that the user is enrolled in a course that contains this phase
+    const enrollments = await Enrollment.find({
+      user: req.params.userId,
+      status: 'active'
+    }).populate({
+      path: 'batch_course',
+      populate: {
+        path: 'course'
+      }
+    });
+    
+    if (!enrollments || enrollments.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User is not enrolled in any course'
+      });
+    }
+    
+    // Get the phase to verify it belongs to an enrolled course
+    const Phase = require('../models/Phase');
+    const phase = await Phase.findById(req.params.phaseId).populate('course_id');
+    
+    if (!phase) {
+      return res.status(404).json({
+        success: false,
+        error: 'Phase not found'
+      });
+    }
+    
+    // Check if user is enrolled in the course that contains this phase
+    const isEnrolled = enrollments.some(enrollment => 
+      enrollment.batch_course.course._id.toString() === phase.course_id._id.toString()
+    );
+    
+    if (!isEnrolled) {
+      return res.status(403).json({
+        success: false,
+        error: 'User is not enrolled in the course containing this phase'
+      });
+    }
+    
+    // Get weeks for this phase
+    const Week = require('../models/Week');
+    const weeks = await Week.find({ 
+      phase_id: req.params.phaseId 
+    })
+    .populate('phase_id', 'phase_name')
+    .sort({ week_order: 1 });
+    
+    console.log(`Found ${weeks.length} weeks for phase: ${phase.phase_name}`);
+    
+    // Transform the weeks to match the desired format
+    const transformedWeeks = weeks.map(week => ({
+      id: week._id,
+      name: week.week_name,
+      description: week.week_description,
+      order: week.week_order,
+      start_date: week.start_date,
+      end_date: week.end_date,
+      is_active: week.is_active,
+      is_required: week.is_required,
+      group_session: week.group_session,
+      live_session: week.live_session,
+      path: `/week-${week.week_order}`,
+      hash: week._id.toString().slice(-16)
+    }));
+    
+    res.status(200).json({
+      success: true,
+      message: "Weeks retrieved successfully.",
+      data: {
+        phase: {
+          id: phase._id,
+          name: phase.phase_name,
+          description: phase.phase_description
+        },
+        weeks: transformedWeeks,
+        total: transformedWeeks.length
+      }
+    });
+  } catch (error) {
+    console.error('Get phase weeks error:', error);
     next(error);
   }
 };
