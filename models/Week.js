@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const WeekSchema = new mongoose.Schema({
+const WeekSchema = new Schema({
   phase_id: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: Schema.Types.ObjectId,
     ref: 'Phase',
     required: true
   },
@@ -11,6 +12,9 @@ const WeekSchema = new mongoose.Schema({
     required: [true, 'Week Name is required'],
     trim: true
   },
+  title: {
+    type: String
+  },
   week_description: {
     type: String
   },
@@ -18,6 +22,17 @@ const WeekSchema = new mongoose.Schema({
     type: Number,
     required: [true, 'Week order is required']
   },
+  hash: {
+    type: String
+  },
+  week_components: [{
+    type: Schema.Types.ObjectId,
+    ref: 'WeekComponent'
+  }],
+  class_topics: [{
+    type: Schema.Types.ObjectId,
+    ref: 'ClassTopic'
+  }],
   start_date: {
     type: Date
   },
@@ -47,7 +62,7 @@ const WeekSchema = new mongoose.Schema({
     end_time: Date
   },
   created_by: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: Schema.Types.ObjectId,
     ref: 'User',
     required: true
   }
