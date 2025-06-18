@@ -1,7 +1,7 @@
 const express = require('express');
 const { check } = require('express-validator');
 const { protect, checkPermission } = require('../middleware/auth');
-const { uploadSingle } = require('../middleware/upload');
+const { uploadFields } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -65,6 +65,11 @@ const {
  *           type: string
  *           enum: [asc, desc]
  *           default: desc
+ *       - in: query
+ *         name: payment_status
+ *         schema:
+ *           type: string
+ *           enum: [pending, paid, failed]
  */
 router.get('/', getCourses);
 
@@ -91,13 +96,47 @@ router.get('/:id', getCourse);
  *     tags: [Courses]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string, example: 'New Course Title' }
+ *               description: { type: string, example: 'Description of the new course.' }
+ *               course_icon_path: { type: string, format: binary, description: 'Image file for the course icon' }
+ *               course_url_path: { type: string, format: binary, description: 'File for the course URL path' }
+ *               price: { type: number, format: float, example: 99.99 }
+ *               difficulty_level: { type: string, enum: [beginner, intermediate, advanced], example: beginner }
+ *               status: { type: string, enum: [draft, published, archived], example: draft }
+ *               duration_months: { type: number, example: 3 }
+ *               course_type: { type: string, enum: [paid, free], example: paid }
+ *               delivery_method: { type: string, enum: [online, offline, hybrid], example: online }
+ *               payment_status: { type: string, enum: [pending, paid, failed], example: pending }
+ *             required:
+ *               - title
+ *               - description
+ *               - duration_months
+ *     responses:
+ *       201:
+ *         description: Course created successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
  */
 router.post(
   '/',
   [
     protect,
     checkPermission('courses', 'create'),
-    uploadSingle('thumbnail'),
+    uploadFields([
+      { name: 'course_icon_path', maxCount: 1 },
+      { name: 'course_url_path', maxCount: 1 }
+    ]),
     check('title', 'Title is required').not().isEmpty(),
     check('description', 'Description is required').not().isEmpty(),
     check('duration_months', 'Duration is required').trim().isNumeric(),
@@ -113,7 +152,10 @@ router.post(
       .isIn(['paid', 'free']),
     check('delivery_method', 'Invalid delivery method')
       .optional()
-      .isIn(['online', 'offline', 'hybrid'])
+      .isIn(['online', 'offline', 'hybrid']),
+    check('payment_status', 'Invalid payment status')
+      .optional()
+      .isIn(['pending', 'paid', 'failed'])
   ],
   createCourse
 );
@@ -126,13 +168,45 @@ router.post(
  *     tags: [Courses]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string, example: 'Updated Course Title' }
+ *               description: { type: string, example: 'Updated description of the course.' }
+ *               course_icon_path: { type: string, format: binary, description: 'New image file for the course icon (optional)' }
+ *               course_url_path: { type: string, format: binary, description: 'New file for the course URL path (optional)' }
+ *               price: { type: number, format: float, example: 129.99 }
+ *               difficulty_level: { type: string, enum: [beginner, intermediate, advanced], example: advanced }
+ *               status: { type: string, enum: [draft, published, archived], example: published }
+ *               duration_months: { type: number, example: 6 }
+ *               course_type: { type: string, enum: [paid, free], example: free }
+ *               delivery_method: { type: string, enum: [online, offline, hybrid], example: hybrid }
+ *               payment_status: { type: string, enum: [pending, paid, failed], example: paid }
+ *     responses:
+ *       200:
+ *         description: Course updated successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Course not found
+ *       500:
+ *         description: Server error
  */
 router.put(
   '/:id',
   [
     protect,
     checkPermission('courses', 'update'),
-    uploadSingle('thumbnail'),
+    uploadFields([
+      { name: 'course_icon_path', maxCount: 1 },
+      { name: 'course_url_path', maxCount: 1 }
+    ]),
     check('title', 'Title is required').optional().not().isEmpty(),
     check('description', 'Description is required').optional().not().isEmpty(),
     check('duration_months', 'Duration must be a number').optional().trim().isNumeric(),
@@ -145,7 +219,13 @@ router.put(
       .isIn(['draft', 'published', 'archived']),
     check('course_type', 'Invalid course type')
       .optional()
-      .isIn(['paid', 'free'])
+      .isIn(['paid', 'free']),
+    check('delivery_method', 'Invalid delivery method')
+      .optional()
+      .isIn(['online', 'offline', 'hybrid']),
+    check('payment_status', 'Invalid payment status')
+      .optional()
+      .isIn(['pending', 'paid', 'failed'])
   ],
   updateCourse
 );
@@ -165,7 +245,7 @@ router.delete('/:id', protect, checkPermission('courses', 'delete'), deleteCours
  * @swagger
  * /api/courses/{id}/instructors:
  *   get:
- *     summary: Get course instructors
+ *     summary: Get all instructors assigned to a specific course
  *     tags: [Courses]
  */
 router.get('/:id/instructors', getCourseInstructors);
@@ -174,18 +254,44 @@ router.get('/:id/instructors', getCourseInstructors);
  * @swagger
  * /api/courses/{id}/instructors:
  *   post:
- *     summary: Assign instructor to course
+ *     summary: Assign an instructor to a course
  *     tags: [Courses]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userId: { type: string, example: '60d0fe4f5311236168a109cc' }
+ *             required:
+ *               - userId
+ *     responses:
+ *       200:
+ *         description: Instructor assigned successfully
+ *       400:
+ *         description: Bad request (e.g., user not found, user is not an instructor, instructor already assigned)
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Course not found
+ *       500:
+ *         description: Server error
  */
 router.post(
   '/:id/instructors',
   [
     protect,
     checkPermission('courses', 'update'),
-    check('user', 'User ID is required').not().isEmpty(),
-    check('role', 'Role is required').isIn(['lead_instructor', 'assistant_instructor'])
+    check('userId', 'User ID is required').not().isEmpty()
   ],
   assignInstructor
 );
@@ -194,10 +300,32 @@ router.post(
  * @swagger
  * /api/courses/{id}/instructors/{userId}:
  *   delete:
- *     summary: Remove instructor from course
+ *     summary: Remove an instructor from a course
  *     tags: [Courses]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Instructor removed successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden, not authorized to remove this instructor
+ *       404:
+ *         description: Course or instructor not found for this course
+ *       500:
+ *         description: Server error
  */
 router.delete(
   '/:id/instructors/:userId',

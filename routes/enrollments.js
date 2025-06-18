@@ -13,8 +13,26 @@ const {
   deleteEnrollment,
   getUserEnrollments,
   getBatchCourseEnrollments,
-  updateEnrollmentProgress
+  updateEnrollmentProgress,
+  getUserEnrolledBatches,
+  getEnrolledCoursePhases,
+  getPhaseWeeks
 } = require('../controllers/enrollments');
+
+// Custom middleware for student enrollment access
+const allowStudentEnrollmentAccess = async (req, res, next) => {
+  try {
+    // If user is accessing their own enrollments, allow it
+    if (req.params.userId === req.user.id) {
+      return next();
+    }
+    
+    // Otherwise, check permissions
+    return checkPermission('enrollments', 'read')(req, res, next);
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * @swagger
@@ -370,5 +388,65 @@ router.patch(
   ],
   updateEnrollmentProgress
 );
+
+/**
+ * @swagger
+ * /enrollments/user/{userId}/enrolled-batches:
+ *   get:
+ *     summary: Get enrolled batches for a user with course details
+ *     tags: [Enrollments]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: List of enrolled batches with course details
+ */
+router.get('/user/:userId/enrolled-batches', protect, allowStudentEnrollmentAccess, getUserEnrolledBatches);
+
+/**
+ * @swagger
+ * /enrollments/user/{userId}/course/{courseId}/phases:
+ *   get:
+ *     summary: Get phases for a specific enrolled course
+ *     tags: [Enrollments]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of phases for the enrolled course
+ */
+router.get('/user/:userId/course/:courseId/phases', protect, allowStudentEnrollmentAccess, getEnrolledCoursePhases);
+
+/**
+ * @swagger
+ * /enrollments/user/{userId}/phase/{phaseId}/weeks:
+ *   get:
+ *     summary: Get weeks for a specific phase
+ *     tags: [Enrollments]
+ */
+router.get('/user/:userId/phase/:phaseId/weeks', protect, allowStudentEnrollmentAccess, getPhaseWeeks);
 
 module.exports = router;
