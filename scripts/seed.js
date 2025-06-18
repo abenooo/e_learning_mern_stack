@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
+// const seedWeeks = require('./path/to/your/seedWeeks'); // adjust the path as needed
 
 // Load environment variables
 dotenv.config();
@@ -30,6 +31,12 @@ const ClassComponent = require('../models/ClassComponent');
 const Video = require('../models/Video');
 const Checklist = require('../models/Checklist');
 const ChecklistItem = require('../models/ChecklistItem');
+const WeekComponent = require('../models/WeekComponent');
+const WeekComponentContent = require('../models/WeekComponentContent');
+const ClassTopic = require('../models/ClassTopic');
+const ClassComponentContent = require('../models/ClassComponentContent');
+const ClassVideoSectionBySection = require('../models/ClassVideoSectionBySection');
+const ClassVideoLiveSession = require('../models/ClassVideoLiveSession');
 
 // Connect to MongoDB with options
 mongoose.connect(process.env.MONGODB_URI, {
@@ -46,118 +53,36 @@ mongoose.connect(process.env.MONGODB_URI, {
   });
 
 const seedData = async () => {
-  try {
-    console.log('=== STARTING DATABASE SEEDING ===');
-    
-    // Check current database state
-    const courseCount = await Course.countDocuments();
-    const phaseCount = await Phase.countDocuments();
-    const weekCount = await Week.countDocuments();
-    
-    console.log(`Current database state: ${courseCount} courses, ${phaseCount} phases, ${weekCount} weeks`);
-    
-    // Clear database only once at the beginning
-    console.log('Clearing database...');
-    await clearDatabase();
-    console.log('Database cleared.');
-    
-    // Seed roles
-    const roles = await seedRoles();
-    console.log('Roles seeded successfully');
-    
-    // Seed permissions
-    const permissions = await seedPermissions();
-    console.log('Permissions seeded successfully');
-    
-    // Seed role permissions
-    const rolePermissions = await seedRolePermissions(roles, permissions);
-    console.log('Role permissions seeded successfully');
-    
-    // Seed users
-    const users = await seedUsers();
-    console.log('Users seeded successfully');
-    
-    // Seed user roles
-    const userRoles = await seedUserRoles(users, roles);
-    console.log('User roles seeded successfully');
-    
-    // Seed courses
-    const courses = await seedCourses(users);
-    console.log('Courses seeded successfully');
-    
-    // Seed batches
-    const batches = await seedBatches(users);
-    console.log('Batches seeded successfully');
-    
-    // Seed batch courses
-    const batchCourses = await seedBatchCourses(batches, courses);
-    console.log('Batch courses seeded successfully');
-    
-    // Seed groups
-    const groups = await seedGroups(batches);
-    console.log('Groups seeded successfully');
-    
-    // Seed phases
-    const phases = await seedPhases(courses);
-    console.log('Phases seeded successfully');
-    
-    // Seed weeks
-    const weeks = await seedWeeks(phases);
-    console.log('Weeks seeded successfully');
-    
-    // Seed batch users
-    const batchUsers = await seedBatchUsers(batches, users);
-    console.log('Batch users seeded successfully');
-    
-    // Seed group users
-    const groupUsers = await seedGroupUsers(groups, users);
-    console.log('Group users seeded successfully');
-    
-    // Seed course instructors
-    const courseInstructors = await seedCourseInstructors(courses, users);
-    console.log('Course instructors seeded successfully');
-    
-    // Seed batch instructors
-    const batchInstructors = await seedBatchInstructors(batches, groups, users);
-    console.log('Batch instructors seeded successfully');
-    
-    // Seed live sessions
-    const liveSessions = await seedLiveSessions(weeks, batches, users);
-    console.log('Live sessions seeded successfully');
-    
-    // Seed group sessions
-    const groupSessions = await seedGroupSessions(weeks, groups, users);
-    console.log('Group sessions seeded successfully');
-    
-    // Seed enrollments
-    const enrollments = await seedEnrollments(batchCourses, users);
-    console.log('Enrollments seeded successfully');
-    
-    // Seed attendance
-    const attendance = await seedAttendance(liveSessions, groupSessions, batches, groups, users);
-    console.log('Attendance seeded successfully');
-    
-    // Seed classes
-    const classes = await seedClasses(weeks);
-    console.log('Classes seeded successfully');
-    
-    const components = await seedClassComponents(classes);
-    console.log('Class components seeded successfully');
-    
-    const videos = await seedVideos(classes);
-    console.log('Videos seeded successfully');
-    
-    const checklists = await seedChecklists(classes);
-    console.log('Checklists seeded successfully');
-    
-    const checklistItems = await seedChecklistItems(checklists);
-    console.log('Checklist items seeded successfully');
-    
-    console.log('=== DATABASE SEEDED SUCCESSFULLY ===');
-  } catch (error) {
-    console.error('Error seeding database:', error);
-    process.exit(1);
-  }
+  await clearDatabase();
+
+  const roles = await seedRoles();
+  const permissions = await seedPermissions();
+  await seedRolePermissions(roles, permissions);
+
+  const users = await seedUsers();
+  const userRoles = await seedUserRoles(users, roles);
+
+  const courses = await seedCourses(users);
+  const batches = await seedBatches(users);
+  const batchCourses = await seedBatchCourses(batches, courses);
+  const groups = await seedGroups(batches);
+
+  const phases = await seedPhases(courses);
+  const weeks = await seedWeeksAndNested(phases);
+
+  const batchUsers = await seedBatchUsers(batches, users);
+  const groupUsers = await seedGroupUsers(groups, users);
+
+  await seedCourseInstructors(courses, users);
+  await seedBatchInstructors(batches, groups, users);
+
+  const liveSessions = await seedLiveSessions(weeks, batches, users);
+  const groupSessions = await seedGroupSessions(weeks, groups, users);
+
+  await seedEnrollments(batchCourses, users);
+  await seedAttendance(liveSessions, groupSessions, batches, groups, users);
+
+  console.log('=== DATABASE SEEDED SUCCESSFULLY ===');
 };
 
 // Clear database
@@ -190,6 +115,12 @@ const clearDatabase = async () => {
   await Video.deleteMany({});
   await Checklist.deleteMany({});
   await ChecklistItem.deleteMany({});
+  await WeekComponent.deleteMany({});
+  await WeekComponentContent.deleteMany({});
+  await ClassTopic.deleteMany({});
+  await ClassComponentContent.deleteMany({});
+  await ClassVideoSectionBySection.deleteMany({});
+  await ClassVideoLiveSession.deleteMany({});
     
     console.log('All collections cleared successfully');
   } catch (error) {
@@ -828,119 +759,139 @@ const seedPhases = async (courses) => {
   return result;
 };
 
-// Seed 4 weeks for 1 phase only
-const seedWeeks = async (phases) => {
-  if (!phases || phases.length === 0) {
-    console.warn('No phases available to link weeks to. Skipping week seeding.');
-    return [];
-  }
-  // Only use the first phase
-  const defaultPhase = phases[0];
+// Seed weeks and nested components
+const seedWeeksAndNested = async (phases) => {
+  for (const phase of phases) {
+    for (let w = 1; w <= 4; w++) {
+      // 1. Create Week
+      const week = await Week.create({
+        phase_id: phase._id,
+        week_name: `Week ${w}`,
+        title: `Title for Week ${w}`,
+        week_description: `Description for Week ${w}`,
+        week_order: w,
+        hash: `hash${w}_${phase._id}`,
+        created_by: phase.created_by
+      });
 
-  const weeks = [
-    {
-      phase_id: defaultPhase._id,
-      week_name: 'Week 1: Getting Started',
-      week_description: 'Introduction to the phase and setup',
-      week_order: 1,
-      start_date: new Date('2025-03-01'),
-      end_date: new Date('2025-03-08'),
-      is_active: true,
-      is_required: true,
-      group_session: {
-        title: 'Group Session 1',
-        description: 'Discussion and Q&A',
-        duration: 60,
-        start_time: new Date('2025-03-03T10:00:00Z'),
-        end_time: new Date('2025-03-03T11:00:00Z')
-      },
-      live_session: {
-        title: 'Live Session 1',
-        description: 'Live coding and walkthrough',
-        duration: 90,
-        start_time: new Date('2025-03-05T14:00:00Z'),
-        end_time: new Date('2025-03-05T15:30:00Z')
-      },
-      created_by: defaultPhase.created_by
-    },
-    {
-      phase_id: defaultPhase._id,
-      week_name: 'Week 2: Core Concepts',
-      week_description: 'Deep dive into core concepts',
-      week_order: 2,
-      start_date: new Date('2025-03-08'),
-      end_date: new Date('2025-03-15'),
-      is_active: true,
-      is_required: true,
-      group_session: {
-        title: 'Group Session 2',
-        description: 'Workshop and exercises',
-        duration: 60,
-        start_time: new Date('2025-03-10T10:00:00Z'),
-        end_time: new Date('2025-03-10T11:00:00Z')
-      },
-      live_session: {
-        title: 'Live Session 2',
-        description: 'Live coding and Q&A',
-        duration: 90,
-        start_time: new Date('2025-03-12T14:00:00Z'),
-        end_time: new Date('2025-03-12T15:30:00Z')
-      },
-      created_by: defaultPhase.created_by
-    },
-    {
-      phase_id: defaultPhase._id,
-      week_name: 'Week 3: Project Work',
-      week_description: 'Hands-on project work',
-      week_order: 3,
-      start_date: new Date('2025-03-15'),
-      end_date: new Date('2025-03-22'),
-      is_active: true,
-      is_required: true,
-      group_session: {
-        title: 'Group Session 3',
-        description: 'Project collaboration',
-        duration: 60,
-        start_time: new Date('2025-03-17T10:00:00Z'),
-        end_time: new Date('2025-03-17T11:00:00Z')
-      },
-      live_session: {
-        title: 'Live Session 3',
-        description: 'Project review and feedback',
-        duration: 90,
-        start_time: new Date('2025-03-19T14:00:00Z'),
-        end_time: new Date('2025-03-19T15:30:00Z')
-      },
-      created_by: defaultPhase.created_by
-    },
-    {
-      phase_id: defaultPhase._id,
-      week_name: 'Week 4: Assessment & Wrap-up',
-      week_description: 'Assessment and course wrap-up',
-      week_order: 4,
-      start_date: new Date('2025-03-22'),
-      end_date: new Date('2025-03-29'),
-      is_active: true,
-      is_required: true,
-      group_session: {
-        title: 'Group Session 4',
-        description: 'Assessment discussion',
-        duration: 60,
-        start_time: new Date('2025-03-24T10:00:00Z'),
-        end_time: new Date('2025-03-24T11:00:00Z')
-      },
-      live_session: {
-        title: 'Live Session 4',
-        description: 'Final Q&A and wrap-up',
-        duration: 90,
-        start_time: new Date('2025-03-26T14:00:00Z'),
-        end_time: new Date('2025-03-26T15:30:00Z')
-      },
-      created_by: defaultPhase.created_by
+      // 2. Create WeekComponent (TODO list)
+      const weekComponent = await WeekComponent.create({
+        week_id: week._id,
+        title: "TODO list of the week",
+        order: 1,
+        icon_type_id: 3,
+        icon_type: { id: 3, title: "TODO List" },
+      });
+
+      // 3. Create WeekComponentContents (PDFs)
+      const todoContent = await WeekComponentContent.create({
+        week_component_id: weekComponent._id,
+        icon_type_id: 2,
+        title: `Todo List : Week ${w}`,
+        order: 1,
+        url: `/assets/documents/week-contents/todo-list-week-${w}.pdf`,
+        icon_type: { id: 2, title: "PDF" }
+      });
+      const practicalContent = await WeekComponentContent.create({
+        week_component_id: weekComponent._id,
+        icon_type_id: 2,
+        title: `Practical Exercises : Week ${w}`,
+        order: 2,
+        url: `/assets/documents/week-contents/practical-exercises-week-${w}.pdf`,
+        icon_type: { id: 2, title: "PDF" }
+      });
+      weekComponent.week_component_contents = [todoContent._id, practicalContent._id];
+      await weekComponent.save();
+
+      // 4. Create 2 ClassTopics
+      const classTopics = [];
+      for (let t = 1; t <= 2; t++) {
+        const classTopic = await ClassTopic.create({
+          week_id: week._id,
+          title: t === 1 ? "Introduction to Web Services" : "API led connectivity",
+          order: t,
+          hash: `topic${t}_hash_${week._id}`,
+          description: "",
+          has_checklist: true,
+        });
+
+        // 5. Create 3 ClassComponents (notes, checklist, videos)
+        const notesComponent = await ClassComponent.create({
+          class_topic_id: classTopic._id,
+          title: "Class notes",
+          order: 1,
+          icon_type_id: 12,
+          icon_type: { id: 12, title: "File" }
+        });
+        const checklistComponent = await ClassComponent.create({
+          class_topic_id: classTopic._id,
+          title: "Class Checklist",
+          order: 2,
+          icon_type_id: 4,
+          icon_type: { id: 4, title: "Checklist" }
+        });
+        const videosComponent = await ClassComponent.create({
+          class_topic_id: classTopic._id,
+          title: "Class Videos",
+          order: 3,
+          icon_type_id: 1,
+          icon_type: { id: 1, title: "Video" }
+        });
+
+        // 6. Add ClassComponentContents (PDFs)
+        const notesContent = await ClassComponentContent.create({
+          class_component_id: notesComponent._id,
+          icon_type_id: 2,
+          title: "Class Notes PDF",
+          order: 1,
+          url: `/assets/documents/class-contents/class-notes-week-${w}-topic-${t}.pdf`,
+          icon_type: { id: 2, title: "PDF" }
+        });
+        notesComponent.class_component_contents = [notesContent._id];
+        await notesComponent.save();
+
+        // ...repeat for checklistComponent and videosComponent as needed...
+
+        // 7. Create 4 ClassVideoSectionBySection
+        const videoSections = [];
+        for (let s = 1; s <= 4; s++) {
+          const section = await ClassVideoSectionBySection.create({
+            class_topic_id: classTopic._id,
+            title: `Section ${s} for Topic ${t}`,
+            order: s,
+            hash: `section${s}_hash_${classTopic._id}`,
+            minimum_minutes_required: 10 + s * 2,
+            class_video_watched_section_by_section_trackers: []
+          });
+          videoSections.push(section._id);
+        }
+
+        // 8. Create 1 ClassVideoLiveSession
+        const liveSession = await ClassVideoLiveSession.create({
+          class_topic_id: classTopic._id,
+          title: `Live Session for Topic ${t}`,
+          hash: `live_hash_${classTopic._id}`,
+          minimum_minutes_required: 90,
+          video_length_minutes: 120,
+          note_html: null,
+          class_video_live_session_trackers: []
+        });
+
+        // 9. Link all to classTopic
+        classTopic.class_components = [notesComponent._id, checklistComponent._id, videosComponent._id];
+        classTopic.class_video_section_by_sections = videoSections;
+        classTopic.class_video_live_sessions = [liveSession._id];
+        await classTopic.save();
+
+        classTopics.push(classTopic._id);
+      }
+
+      // 10. Link weekComponent and classTopics to week
+      week.week_components = [weekComponent._id];
+      week.class_topics = classTopics;
+      await week.save();
     }
-  ];
-  
-  return await Week.insertMany(weeks);
+  }
 };
 
 // Seed batch users
@@ -1149,75 +1100,62 @@ const seedBatchInstructors = async (batches, groups, users) => {
 };
 
 // Seed live sessions
-const seedLiveSessions = async (weeks, batches, users) => {
-  const liveSessions = [
-    {
-      week: weeks[0]._id,
-      batch: batches[0]._id,
-      instructor: users[2]._id,
-      title: 'HTML Fundamentals - Part 1',
-      description: 'Introduction to HTML structure and basic elements',
-      session_date: new Date('2025-03-01'),
-      start_time: '10:00 AM',
-      end_time: '12:00 PM',
-      meeting_link: 'https://www.example.com/live/mar2025/ls-1',
-      session_type: 'LS-1',
-      is_full_class: true,
-      is_active: true,
-      status: 'scheduled'
-    },
-    {
-      week: weeks[0]._id,
-      batch: batches[0]._id,
-      instructor: users[2]._id,
-      title: 'HTML Fundamentals - Part 2',
-      description: 'Advanced HTML elements and forms',
-      session_date: new Date('2025-03-02'),
-      start_time: '10:00 AM',
-      end_time: '12:00 PM',
-      meeting_link: 'https://www.example.com/live/mar2025/ls-2',
-      session_type: 'LS-2',
-      is_full_class: true,
-      is_active: true,
-      status: 'scheduled'
+const seedLiveSessions = async (phases, batches, users) => {
+  const liveSessions = [];
+  
+  for (const phase of phases) {
+    for (let w = 1; w <= 4; w++) {
+      const week = await Week.findOne({ phase_id: phase._id, week_order: w });
+      if (week) {
+        const liveSession = await LiveSession.create({
+          week: week._id,
+          batch: batches[0]._id,
+          instructor: users[2]._id,
+          title: `Live Session ${w}`,
+          description: `Live session for Week ${w}`,
+          session_date: week.start_date,
+          start_time: week.class_start_time,
+          end_time: week.class_end_time,
+          meeting_link: week.meeting_link,
+          session_type: 'LS',
+          is_full_class: true,
+          is_active: true,
+          status: 'scheduled'
+        });
+        liveSessions.push(liveSession);
+      }
     }
-  ];
+  }
   
   return await LiveSession.insertMany(liveSessions);
 };
 
 // Seed group sessions
-const seedGroupSessions = async (weeks, groups, users) => {
-  const groupSessions = [
-    {
-      week: weeks[0]._id,
-      group: groups[0]._id,
-      instructor: users[4]._id,
-      title: 'HTML Practice Session - Group 1',
-      description: 'Practice session for HTML fundamentals',
-      session_date: new Date('2025-03-03'),
-      start_time: '10:00 AM',
-      end_time: '12:00 PM',
-      meeting_link: 'https://www.example.com/group/mar2025/g1/gs-1',
-      session_type: 'GS-1',
-      is_active: true,
-      status: 'scheduled'
-    },
-    {
-      week: weeks[0]._id,
-      group: groups[1]._id,
-      instructor: users[5]._id,
-      title: 'HTML Practice Session - Group 2',
-      description: 'Practice session for HTML fundamentals',
-      session_date: new Date('2025-03-03'),
-      start_time: '1:00 PM',
-      end_time: '3:00 PM',
-      meeting_link: 'https://www.example.com/group/mar2025/g2/gs-1',
-      session_type: 'GS-1',
-      is_active: true,
-      status: 'scheduled'
+const seedGroupSessions = async (phases, groups, users) => {
+  const groupSessions = [];
+  
+  for (const phase of phases) {
+    for (let w = 1; w <= 4; w++) {
+      const week = await Week.findOne({ phase_id: phase._id, week_order: w });
+      if (week) {
+        const groupSession = await GroupSession.create({
+          week: week._id,
+          group: groups[0]._id,
+          instructor: users[4]._id,
+          title: `Group Session ${w}`,
+          description: `Group session for Week ${w}`,
+          session_date: week.start_date,
+          start_time: week.class_start_time,
+          end_time: week.class_end_time,
+          meeting_link: week.meeting_link,
+          session_type: 'GS',
+          is_active: true,
+          status: 'scheduled'
+        });
+        groupSessions.push(groupSession);
+      }
     }
-  ];
+  }
   
   return await GroupSession.insertMany(groupSessions);
 };
@@ -1457,172 +1395,6 @@ const seedAttendance = async (liveSessions, groupSessions, batches, groups, user
   }
   
   return await Attendance.insertMany(attendance);
-};
-
-// Seed classes
-const seedClasses = async (weeks) => {
-  const classes = [
-    {
-      week: weeks[0]._id,
-      title: 'Introduction to HTML',
-      description: 'Learn the basics of HTML markup language',
-      order_number: 1,
-      type: 'lecture',
-      is_active: true,
-      is_required: true,
-      icon_url: '/uploads/classes/html-intro-icon.png'
-    },
-    {
-      week: weeks[0]._id,
-      title: 'HTML Elements and Attributes',
-      description: 'Understanding HTML elements and their attributes',
-      order_number: 2,
-      type: 'workshop',
-      is_active: true,
-      is_required: true,
-      icon_url: '/uploads/classes/html-elements-icon.png'
-    },
-    {
-      week: weeks[1]._id,
-      title: 'CSS Selectors',
-      description: 'Learn about CSS selectors and specificity',
-      order_number: 1,
-      type: 'lecture',
-      is_active: true,
-      is_required: true,
-      icon_url: '/uploads/classes/css-selectors-icon.png'
-    }
-  ];
-  
-  return await Class.insertMany(classes);
-};
-
-// Seed class components
-const seedClassComponents = async (classes) => {
-  const components = [
-    {
-      class: classes[0]._id,
-      title: 'HTML Document Structure',
-      content: '<h1>HTML Document Structure</h1><p>Learn about the basic structure of an HTML document...</p>',
-      component_type: 'document',
-      icon_type: 'document',
-      order_number: 1,
-      is_active: true,
-      is_required: true
-    },
-    {
-      class: classes[0]._id,
-      title: 'Common HTML Elements',
-      content: '<h2>Common HTML Elements</h2><p>Explore the most commonly used HTML elements...</p>',
-      component_type: 'document',
-      icon_type: 'list',
-      order_number: 2,
-      is_active: true,
-      is_required: true
-    },
-    {
-      class: classes[1]._id,
-      title: 'HTML Forms',
-      content: '<h2>HTML Forms</h2><p>Learn how to create and style HTML forms...</p>',
-      component_type: 'document',
-      icon_type: 'form',
-      order_number: 1,
-      is_active: true,
-      is_required: true
-    }
-  ];
-  
-  return await ClassComponent.insertMany(components);
-};
-
-// Seed videos
-const seedVideos = async (classes) => {
-  const videos = [
-    {
-      class: classes[0]._id,
-      title: 'HTML Basics Tutorial',
-      url: 'https://www.example.com/videos/html-basics',
-      duration_minutes: 45,
-      is_live: false,
-      min_watched_time: 30,
-      is_disabled: false,
-      notes: 'This video covers the fundamentals of HTML'
-    },
-    {
-      class: classes[0]._id,
-      title: 'HTML Elements Deep Dive',
-      url: 'https://www.example.com/videos/html-elements',
-      duration_minutes: 60,
-      is_live: false,
-      min_watched_time: 45,
-      is_disabled: false,
-      notes: 'Detailed explanation of HTML elements'
-    },
-    {
-      class: classes[1]._id,
-      title: 'HTML Forms Tutorial',
-      url: 'https://www.example.com/videos/html-forms',
-      duration_minutes: 30,
-      is_live: false,
-      min_watched_time: 20,
-      is_disabled: false,
-      notes: 'Learn how to create HTML forms'
-    }
-  ];
-  
-  return await Video.insertMany(videos);
-};
-
-// Seed checklists
-const seedChecklists = async (classes) => {
-  const checklists = [
-    {
-      class: classes[0]._id,
-      title: 'HTML Fundamentals Checklist',
-      description: 'Checklist for HTML fundamentals',
-      is_active: true
-    },
-    {
-      class: classes[1]._id,
-      title: 'HTML Elements Checklist',
-      description: 'Checklist for HTML elements',
-      is_active: true
-    }
-  ];
-  
-  return await Checklist.insertMany(checklists);
-};
-
-// Seed checklist items
-const seedChecklistItems = async (checklists) => {
-  const items = [
-    {
-      checklist: checklists[0]._id,
-      title: 'Understand HTML Document Structure',
-      html_content: '<p>Learn about DOCTYPE, html, head, and body tags</p>',
-      is_required: true,
-      order_number: 1,
-      is_active: true
-    },
-    {
-      checklist: checklists[0]._id,
-      title: 'Master Basic HTML Elements',
-      html_content: '<p>Learn about headings, paragraphs, and text formatting</p>',
-      is_required: true,
-      order_number: 2,
-      is_active: true
-    },
-    {
-      checklist: checklists[1]._id,
-      title: 'Create HTML Forms',
-      html_content: '<p>Learn to create and style HTML forms</p>',
-      is_required: true,
-      order_number: 1,
-      is_active: true
-    }
-  ];
-  
-  return await ChecklistItem.insertMany(items);
 };
 
 // Run the seed function
