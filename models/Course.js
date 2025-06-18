@@ -10,11 +10,16 @@ const CourseSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Course description is required']
   },
-  thumbnail: {
+  course_icon_path: {
     type: String
   },
-  logo_url: {
+  course_url_path: {
     type: String
+  },
+  payment_status: {
+    type: String,
+    enum: ['pending', 'paid', 'failed'],
+    default: 'pending'
   },
   price: {
     type: Number,
