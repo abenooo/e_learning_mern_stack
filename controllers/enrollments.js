@@ -2,6 +2,8 @@ const Enrollment = require('../models/Enrollment');
 const BatchCourse = require('../models/BatchCourse');
 const User = require('../models/User');
 const { validationResult } = require('express-validator');
+require('../models/WeekComponent');
+require('../models/WeekComponentContent');
 
 /**
  * @swagger
