@@ -7,7 +7,8 @@ async function migrateCourses() {
         await mongoose.connect(process.env.MONGODB_URI, {
             useNewUrlParser: true,
             useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
+            serverSelectionTimeoutMS: 30000, // 30 seconds
+            socketTimeoutMS: 30000           // 30 seconds
         });
         console.log('MongoDB connected for course migration.');
 
@@ -32,6 +33,11 @@ async function migrateCourses() {
         // If they were completely removed and not renamed, you would do:
         // await Course.updateMany({}, { $unset: { thumbnail: "", logo_url: "" } });
 
+        await seedData(); // <-- Only call after connection!
+
+        console.log('Weeks seeded successfully');
+        console.log('Batch users seeded successfully');
+        // etc.
 
     } catch (error) {
         console.error('Error during course migration:', error);
@@ -42,3 +48,14 @@ async function migrateCourses() {
 }
 
 migrateCourses(); 
+
+db.weeks.find().count()
+db.enrollments.find().count() 
+
+const weeks = await seedWeeksAndNested(phases);
+console.log('Weeks and nested data seeded successfully');
+
+const batchUsers = await seedBatchUsers(batches, users);
+console.log('Batch users seeded successfully');
+
+// ...repeat for each major step... 
