@@ -60,27 +60,48 @@ const seedData = async () => {
   await seedRolePermissions(roles, permissions);
 
   const users = await seedUsers();
+  console.log('Users seeded successfully');
   const userRoles = await seedUserRoles(users, roles);
+  console.log('User roles seeded successfully');
 
   const courses = await seedCourses(users);
+  console.log('Courses seeded successfully');
   const batches = await seedBatches(users);
+  console.log('Batches seeded successfully');
   const batchCourses = await seedBatchCourses(batches, courses);
+  console.log('Batch courses seeded successfully');
   const groups = await seedGroups(batches);
+  console.log('Groups seeded successfully');
 
+  console.log('Seeding phases...');
   const phases = await seedPhases(courses);
-  const weeks = await seedWeeksAndNested(phases);
+  console.log('Phases seeded successfully');
 
+  console.log('Seeding weeks and nested data...');
+  const weeks = await seedWeeksAndNested(phases);
+  console.log('Weeks and nested data seeded successfully');
+
+  console.log('Seeding batch users...');
   const batchUsers = await seedBatchUsers(batches, users);
+  console.log('Batch users seeded successfully');
   const groupUsers = await seedGroupUsers(groups, users);
+  console.log('Group users seeded successfully');
 
   await seedCourseInstructors(courses, users);
+  console.log('Course instructors seeded successfully');
   await seedBatchInstructors(batches, groups, users);
+  console.log('Batch instructors seeded successfully');
 
   const liveSessions = await seedLiveSessions(weeks, batches, users);
+  console.log('Live sessions seeded successfully');
   const groupSessions = await seedGroupSessions(weeks, groups, users);
+  console.log('Group sessions seeded successfully');
 
-  await seedEnrollments(batchCourses, users);
+  console.log('Seeding enrollments...');
+  const enrollments = await seedEnrollments(batchCourses, users);
+  console.log('Inserted enrollments:', enrollments.length);
   await seedAttendance(liveSessions, groupSessions, batches, groups, users);
+  console.log('Attendance seeded successfully');
 
   console.log('=== DATABASE SEEDED SUCCESSFULLY ===');
 };
@@ -761,137 +782,149 @@ const seedPhases = async (courses) => {
 
 // Seed weeks and nested components
 const seedWeeksAndNested = async (phases) => {
+  const allWeeks = [];
   for (const phase of phases) {
     for (let w = 1; w <= 4; w++) {
-      // 1. Create Week
-      const week = await Week.create({
-        phase_id: phase._id,
-        week_name: `Week ${w}`,
-        title: `Title for Week ${w}`,
-        week_description: `Description for Week ${w}`,
-        week_order: w,
-        hash: `hash${w}_${phase._id}`,
-        created_by: phase.created_by
-      });
+      try {
+        console.log(`Creating week ${w} for phase ${phase.phase_name} (${phase._id})`);
+        const week = await Week.create({
+          phase_id: phase._id,
+          week_name: `Week ${w}`,
+          title: `Title for Week ${w}`,
+          week_description: `Description for Week ${w}`,
+          week_order: w,
+          hash: `hash${w}_${phase._id}`,
+          created_by: phase.created_by
+        });
+        console.log(`Created week ${week._id}`);
 
-      // 2. Create WeekComponent (TODO list)
-      const weekComponent = await WeekComponent.create({
-        week_id: week._id,
-        title: "TODO list of the week",
-        order: 1,
-        icon_type_id: 3,
-        icon_type: { id: 3, title: "TODO List" },
-      });
-
-      // 3. Create WeekComponentContents (PDFs)
-      const todoContent = await WeekComponentContent.create({
-        week_component_id: weekComponent._id,
-        icon_type_id: 2,
-        title: `Todo List : Week ${w}`,
-        order: 1,
-        url: `/assets/documents/week-contents/todo-list-week-${w}.pdf`,
-        icon_type: { id: 2, title: "PDF" }
-      });
-      const practicalContent = await WeekComponentContent.create({
-        week_component_id: weekComponent._id,
-        icon_type_id: 2,
-        title: `Practical Exercises : Week ${w}`,
-        order: 2,
-        url: `/assets/documents/week-contents/practical-exercises-week-${w}.pdf`,
-        icon_type: { id: 2, title: "PDF" }
-      });
-      weekComponent.week_component_contents = [todoContent._id, practicalContent._id];
-      await weekComponent.save();
-
-      // 4. Create 2 ClassTopics
-      const classTopics = [];
-      for (let t = 1; t <= 2; t++) {
-        const classTopic = await ClassTopic.create({
+        // 2. Create WeekComponent (TODO list)
+        const weekComponent = await WeekComponent.create({
           week_id: week._id,
-          title: t === 1 ? "Introduction to Web Services" : "API led connectivity",
-          order: t,
-          hash: `topic${t}_hash_${week._id}`,
-          description: "",
-          has_checklist: true,
-        });
-
-        // 5. Create 3 ClassComponents (notes, checklist, videos)
-        const notesComponent = await ClassComponent.create({
-          class_topic_id: classTopic._id,
-          title: "Class notes",
+          title: "TODO list of the week",
           order: 1,
-          icon_type_id: 12,
-          icon_type: { id: 12, title: "File" }
-        });
-        const checklistComponent = await ClassComponent.create({
-          class_topic_id: classTopic._id,
-          title: "Class Checklist",
-          order: 2,
-          icon_type_id: 4,
-          icon_type: { id: 4, title: "Checklist" }
-        });
-        const videosComponent = await ClassComponent.create({
-          class_topic_id: classTopic._id,
-          title: "Class Videos",
-          order: 3,
-          icon_type_id: 1,
-          icon_type: { id: 1, title: "Video" }
+          icon_type_id: 3,
+          icon_type: { id: 3, title: "TODO List" },
         });
 
-        // 6. Add ClassComponentContents (PDFs)
-        const notesContent = await ClassComponentContent.create({
-          class_component_id: notesComponent._id,
+        // 3. Create WeekComponentContents (PDFs)
+        const todoContent = await WeekComponentContent.create({
+          week_component_id: weekComponent._id,
           icon_type_id: 2,
-          title: "Class Notes PDF",
+          title: `Todo List : Week ${w}`,
           order: 1,
-          url: `/assets/documents/class-contents/class-notes-week-${w}-topic-${t}.pdf`,
+          url: `/assets/documents/week-contents/todo-list-week-${w}.pdf`,
           icon_type: { id: 2, title: "PDF" }
         });
-        notesComponent.class_component_contents = [notesContent._id];
-        await notesComponent.save();
+        const practicalContent = await WeekComponentContent.create({
+          week_component_id: weekComponent._id,
+          icon_type_id: 2,
+          title: `Practical Exercises : Week ${w}`,
+          order: 2,
+          url: `/assets/documents/week-contents/practical-exercises-week-${w}.pdf`,
+          icon_type: { id: 2, title: "PDF" }
+        });
+        weekComponent.week_component_contents = [todoContent._id, practicalContent._id];
+        await weekComponent.save();
 
-        // ...repeat for checklistComponent and videosComponent as needed...
-
-        // 7. Create 4 ClassVideoSectionBySection
-        const videoSections = [];
-        for (let s = 1; s <= 4; s++) {
-          const section = await ClassVideoSectionBySection.create({
-            class_topic_id: classTopic._id,
-            title: `Section ${s} for Topic ${t}`,
-            order: s,
-            hash: `section${s}_hash_${classTopic._id}`,
-            minimum_minutes_required: 10 + s * 2,
-            class_video_watched_section_by_section_trackers: []
+        // 4. Create 2 ClassTopics
+        const classTopics = [];
+        for (let t = 1; t <= 2; t++) {
+          const classTopic = await ClassTopic.create({
+            week_id: week._id,
+            title: t === 1 ? "Introduction to Web Services" : "API led connectivity",
+            order: t,
+            hash: `topic${t}_hash_${week._id}`,
+            description: "",
+            has_checklist: true,
           });
-          videoSections.push(section._id);
+
+          // 5. Create 3 ClassComponents (notes, checklist, videos)
+          const notesComponent = await ClassComponent.create({
+            class_topic_id: classTopic._id,
+            title: "Class notes",
+            order: 1,
+            icon_type_id: 12,
+            icon_type: { id: 12, title: "File" }
+          });
+          const checklistComponent = await ClassComponent.create({
+            class_topic_id: classTopic._id,
+            title: "Class Checklist",
+            order: 2,
+            icon_type_id: 4,
+            icon_type: { id: 4, title: "Checklist" }
+          });
+          const videosComponent = await ClassComponent.create({
+            class_topic_id: classTopic._id,
+            title: "Class Videos",
+            order: 3,
+            icon_type_id: 1,
+            icon_type: { id: 1, title: "Video" }
+          });
+
+          // 6. Add ClassComponentContents (PDFs)
+          const notesContent = await ClassComponentContent.create({
+            class_component_id: notesComponent._id,
+            icon_type_id: 2,
+            title: "Class Notes PDF",
+            order: 1,
+            url: `/assets/documents/class-contents/class-notes-week-${w}-topic-${t}.pdf`,
+            icon_type: { id: 2, title: "PDF" }
+          });
+          notesComponent.class_component_contents = [notesContent._id];
+          await notesComponent.save();
+
+          // ...repeat for checklistComponent and videosComponent as needed...
+
+          // 7. Create 4 ClassVideoSectionBySection
+          const videoSections = [];
+          for (let s = 1; s <= 4; s++) {
+            const section = await ClassVideoSectionBySection.create({
+              class_topic_id: classTopic._id,
+              title: `Section ${s} for Topic ${t}`,
+              order: s,
+              hash: `section${s}_hash_${classTopic._id}`,
+              minimum_minutes_required: 10 + s * 2,
+              class_video_watched_section_by_section_trackers: []
+            });
+            videoSections.push(section._id);
+          }
+
+          // 8. Create 1 ClassVideoLiveSession
+          const liveSession = await ClassVideoLiveSession.create({
+            class_topic_id: classTopic._id,
+            title: `Live Session for Topic ${t}`,
+            hash: `live_hash_${classTopic._id}`,
+            minimum_minutes_required: 90,
+            video_length_minutes: 120,
+            note_html: null,
+            class_video_live_session_trackers: [],
+            session_type: t % 2 === 0 ? "LS-1" : "LS-2"
+          });
+
+          // 9. Link all to classTopic
+          classTopic.class_components = [notesComponent._id, checklistComponent._id, videosComponent._id];
+          classTopic.class_video_section_by_sections = videoSections;
+          classTopic.class_video_live_sessions = [liveSession._id];
+          await classTopic.save();
+
+          classTopics.push(classTopic._id);
         }
 
-        // 8. Create 1 ClassVideoLiveSession
-        const liveSession = await ClassVideoLiveSession.create({
-          class_topic_id: classTopic._id,
-          title: `Live Session for Topic ${t}`,
-          hash: `live_hash_${classTopic._id}`,
-          minimum_minutes_required: 90,
-          video_length_minutes: 120,
-          note_html: null,
-          class_video_live_session_trackers: []
-        });
+        // 10. Link weekComponent and classTopics to week
+        week.week_components = [weekComponent._id];
+        week.class_topics = classTopics;
+        await week.save();
 
-        // 9. Link all to classTopic
-        classTopic.class_components = [notesComponent._id, checklistComponent._id, videosComponent._id];
-        classTopic.class_video_section_by_sections = videoSections;
-        classTopic.class_video_live_sessions = [liveSession._id];
-        await classTopic.save();
-
-        classTopics.push(classTopic._id);
+        allWeeks.push(week);
+      } catch (err) {
+        console.error(`Error creating week ${w} for phase ${phase.phase_name}:`, err);
+        throw err;
       }
-
-      // 10. Link weekComponent and classTopics to week
-      week.week_components = [weekComponent._id];
-      week.class_topics = classTopics;
-      await week.save();
     }
   }
+  console.log('Weeks and nested data seeded successfully');
+  return allWeeks;
 };
 
 // Seed batch users
@@ -1100,68 +1133,54 @@ const seedBatchInstructors = async (batches, groups, users) => {
 };
 
 // Seed live sessions
-const seedLiveSessions = async (phases, batches, users) => {
+const seedLiveSessions = async (weeks, batches, users) => {
   const liveSessions = [];
-  
-  for (const phase of phases) {
-    for (let w = 1; w <= 4; w++) {
-      const week = await Week.findOne({ phase_id: phase._id, week_order: w });
-      if (week) {
-        const liveSession = await LiveSession.create({
-          week: week._id,
-          batch: batches[0]._id,
-          instructor: users[2]._id,
-          title: `Live Session ${w}`,
-          description: `Live session for Week ${w}`,
-          session_date: week.start_date,
-          start_time: week.class_start_time,
-          end_time: week.class_end_time,
-          meeting_link: week.meeting_link,
-          session_type: 'LS',
-          is_full_class: true,
-          is_active: true,
-          status: 'scheduled'
-        });
-        liveSessions.push(liveSession);
-      }
-    }
+  for (const week of weeks) {
+    liveSessions.push({
+      week: week._id,
+      batch: batches[0]._id,
+      instructor: users[2]._id,
+      title: `Live Session ${week.week_order}`,
+      description: `Live session for Week ${week.week_order}`,
+      session_date: new Date(), // or generate a date
+      start_time: "09:00",
+      end_time: "10:00",
+      meeting_link: "https://zoom.us/j/123456789",
+      session_type: week.week_order % 2 === 0 ? "LS-1" : "LS-2",
+      is_full_class: true,
+      is_active: true,
+      status: 'scheduled'
+    });
   }
-  
-  return await LiveSession.insertMany(liveSessions);
+  return await LiveSession.insertMany(liveSessions, { ordered: false });
 };
 
 // Seed group sessions
-const seedGroupSessions = async (phases, groups, users) => {
+const seedGroupSessions = async (weeks, groups, users) => {
   const groupSessions = [];
-  
-  for (const phase of phases) {
-    for (let w = 1; w <= 4; w++) {
-      const week = await Week.findOne({ phase_id: phase._id, week_order: w });
-      if (week) {
-        const groupSession = await GroupSession.create({
-          week: week._id,
-          group: groups[0]._id,
-          instructor: users[4]._id,
-          title: `Group Session ${w}`,
-          description: `Group session for Week ${w}`,
-          session_date: week.start_date,
-          start_time: week.class_start_time,
-          end_time: week.class_end_time,
-          meeting_link: week.meeting_link,
-          session_type: 'GS',
-          is_active: true,
-          status: 'scheduled'
-        });
-        groupSessions.push(groupSession);
-      }
-    }
+  for (const week of weeks) {
+    groupSessions.push({
+      week: week._id,
+      group: groups[0]._id,
+      instructor: users[4]._id,
+      title: `Group Session ${week.week_order}`,
+      description: `Group session for Week ${week.week_order}`,
+      session_date: new Date(),
+      start_time: "13:00",
+      end_time: "14:00",
+      meeting_link: "https://zoom.us/j/987654321",
+      session_type: week.week_order % 2 === 0 ? "GS-1" : "GS-2",
+      is_active: true,
+      status: 'scheduled'
+    });
   }
-  
-  return await GroupSession.insertMany(groupSessions);
+  return await GroupSession.insertMany(groupSessions, { ordered: false });
 };
 
 // Seed enrollments
 const seedEnrollments = async (batchCourses, users) => {
+  console.log('Inside seedEnrollments, batchCourses:', batchCourses.length, 'users:', users.length);
+
   const enrollments = [
     // Existing enrollments for other students
     {
@@ -1329,7 +1348,10 @@ const seedEnrollments = async (batchCourses, users) => {
     }
   ];
   
-  return await Enrollment.insertMany(enrollments);
+  const result = await Enrollment.insertMany(enrollments);
+  console.log('Inserted enrollments:', result.length);
+  
+  return result;
 };
 
 // Seed attendance
