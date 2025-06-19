@@ -98,3 +98,8 @@ mongoose.connect(process.env.MONGODB_URI)
 
 require('./models/WeekComponent');
 require('./models/WeekComponentContent');
+require('./models/ClassTopic');
+require('./models/ClassComponent');
+require('./models/ClassComponentContent');
+require('./models/ClassVideoSectionBySection');
+require('./models/ClassVideoLiveSession');
