@@ -707,85 +707,171 @@ exports.getEnrolledCoursePhases = async (req, res, next) => {
 exports.getPhaseWeeks = async (req, res, next) => {
   try {
     console.log(`Get phase weeks request received for user ID: ${req.params.userId}, phase ID: ${req.params.phaseId}`);
-    
-    // First, verify that the user is enrolled in a course that contains this phase
+
+    // 1. Verify user is enrolled in a course that contains this phase
     const enrollments = await Enrollment.find({
       user: req.params.userId,
       status: 'active'
     }).populate({
       path: 'batch_course',
-      populate: {
-        path: 'course'
-      }
+      populate: { path: 'course' }
     });
-    
+
     if (!enrollments || enrollments.length === 0) {
       return res.status(404).json({
         success: false,
         error: 'User is not enrolled in any course'
       });
     }
-    
-    // Get the phase to verify it belongs to an enrolled course
+
+    // 2. Get the phase and verify it belongs to an enrolled course
     const Phase = require('../models/Phase');
     const phase = await Phase.findById(req.params.phaseId).populate('course_id');
-    
     if (!phase) {
       return res.status(404).json({
         success: false,
         error: 'Phase not found'
       });
     }
-    
-    // Check if user is enrolled in the course that contains this phase
-    const isEnrolled = enrollments.some(enrollment => 
+
+    const isEnrolled = enrollments.some(enrollment =>
       enrollment.batch_course.course._id.toString() === phase.course_id._id.toString()
     );
-    
     if (!isEnrolled) {
       return res.status(403).json({
         success: false,
         error: 'User is not enrolled in the course containing this phase'
       });
     }
-    
-    // Get weeks for this phase
+
+    // 3. Deeply populate weeks and all nested children
     const Week = require('../models/Week');
-    const weeks = await Week.find({ 
-      phase_id: req.params.phaseId 
-    })
-    .populate('phase_id', 'phase_name')
-    .sort({ week_order: 1 });
-    
-    console.log(`Found ${weeks.length} weeks for phase: ${phase.phase_name}`);
-    
-    // Transform the weeks to match the desired format
+    const weeks = await Week.find({ phase_id: req.params.phaseId })
+      .sort({ week_order: 1 })
+      .populate({
+        path: 'week_components',
+        populate: [
+          { path: 'icon_type' },
+          {
+            path: 'week_component_contents',
+            populate: { path: 'icon_type' }
+          }
+        ]
+      })
+      .populate({
+        path: 'class_topics',
+        populate: [
+          {
+            path: 'class_components',
+            populate: [
+              { path: 'icon_type' },
+              {
+                path: 'class_component_contents',
+                populate: { path: 'icon_type' }
+              }
+            ]
+          },
+          {
+            path: 'class_video_section_by_sections',
+            populate: { path: 'class_video_watched_section_by_section_trackers' }
+          },
+          {
+            path: 'class_video_live_sessions',
+            populate: { path: 'class_video_live_session_trackers' }
+          }
+        ]
+      })
+      .lean();
+
+    // 4. Transform the data to match your frontend contract
     const transformedWeeks = weeks.map(week => ({
       id: week._id,
-      name: week.week_name,
-      description: week.week_description,
+      week_name: week.week_name,
+      title: week.title,
       order: week.week_order,
-      start_date: week.start_date,
-      end_date: week.end_date,
-      is_active: week.is_active,
-      is_required: week.is_required,
-      group_session: week.group_session,
-      live_session: week.live_session,
-      path: `/week-${week.week_order}`,
-      hash: week._id.toString().slice(-16)
+      hash: week.hash,
+      week_components: (week.week_components || []).map(wc => ({
+        id: wc._id,
+        week_id: wc.week_id,
+        title: wc.title,
+        order: wc.order,
+        icon_type_id: wc.icon_type_id,
+        icon_type: wc.icon_type,
+        week_component_contents: (wc.week_component_contents || []).map(wcc => ({
+          id: wcc._id,
+          week_component_id: wcc.week_component_id,
+          icon_type_id: wcc.icon_type_id,
+          title: wcc.title,
+          note_html: wcc.note_html,
+          order: wcc.order,
+          url: wcc.url,
+          icon_type: wcc.icon_type
+        }))
+      })),
+      class_topics: (week.class_topics || []).map(ct => ({
+        id: ct._id,
+        week_id: ct.week_id,
+        title: ct.title,
+        order: ct.order,
+        hash: ct.hash,
+        description: ct.description,
+        has_checklist: ct.has_checklist,
+        class_components: (ct.class_components || []).map(cc => ({
+          id: cc._id,
+          class_topic_id: cc.class_topic_id,
+          title: cc.title,
+          order: cc.order,
+          icon_type_id: cc.icon_type_id,
+          icon_type: cc.icon_type,
+          class_component_contents: (cc.class_component_contents || []).map(ccc => ({
+            id: ccc._id,
+            icon_type_id: ccc.icon_type_id,
+            class_component_id: ccc.class_component_id,
+            title: ccc.title,
+            note_html: ccc.note_html,
+            order: ccc.order,
+            url: ccc.url,
+            icon_type: ccc.icon_type
+          }))
+        })),
+        class_video_section_by_sections: (ct.class_video_section_by_sections || []).map(vs => ({
+          id: vs._id,
+          class_topic_id: vs.class_topic_id,
+          title: vs.title,
+          order: vs.order,
+          hash: vs.hash,
+          minimum_minutes_required: vs.minimum_minutes_required,
+          class_video_watched_section_by_section_trackers: vs.class_video_watched_section_by_section_trackers
+        })),
+        class_video_live_sessions: (ct.class_video_live_sessions || []).map(ls => ({
+          id: ls._id,
+          class_topic_id: ls.class_topic_id,
+          title: ls.title,
+          hash: ls.hash,
+          minimum_minutes_required: ls.minimum_minutes_required,
+          video_length_minutes: ls.video_length_minutes,
+          note_html: ls.note_html,
+          class_video_live_session_trackers: ls.class_video_live_session_trackers
+        }))
+      }))
     }));
-    
+
+    // 5. Respond with the phase and weeks
     res.status(200).json({
       success: true,
-      message: "Weeks retrieved successfully.",
+      message: "Successfully retrieved.",
       data: {
         phase: {
           id: phase._id,
           name: phase.phase_name,
-          description: phase.phase_description
-        },
-        weeks: transformedWeeks,
-        total: transformedWeeks.length
+          path: phase.path,
+          brief_description: phase.brief_description,
+          full_description: phase.full_description,
+          icon: phase.icon,
+          hash: phase.hash,
+          order: phase.phase_order,
+          weeks: transformedWeeks
+        }
       }
     });
   } catch (error) {
