@@ -1,3 +1,4 @@
+console.log('Registering ClassTopic model');
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
