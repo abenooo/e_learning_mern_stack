@@ -4,6 +4,11 @@ const User = require('../models/User');
 const { validationResult } = require('express-validator');
 require('../models/WeekComponent');
 require('../models/WeekComponentContent');
+require('../models/ClassTopic');
+require('../models/ClassComponent');
+require('../models/ClassComponentContent');
+require('../models/ClassVideoSectionBySection');
+require('../models/ClassVideoLiveSession');
 
 /**
  * @swagger
