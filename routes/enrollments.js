@@ -347,6 +347,29 @@ router.get('/user/:userId', protect, checkPermission('enrollments', 'read'), get
  *       200:
  *         description: List of batch course enrollments
  */
+/**
+ * @swagger
+ * /enrollments/enrolled-batches:
+ *   get:
+ *     summary: Get enrolled batches for current user with course details
+ *     tags: [Enrollments]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: List of enrolled batches with course details
+ */
+router.get('/enrolled-batches', protect, allowStudentEnrollmentAccess, getUserEnrolledBatches);
+
 router.get('/batch-course/:batchCourseId', protect, checkPermission('enrollments', 'read'), getBatchCourseEnrollments);
 
 /**
@@ -388,29 +411,6 @@ router.patch(
   ],
   updateEnrollmentProgress
 );
-
-/**
- * @swagger
- * /enrollments/enrolled-batches:
- *   get:
- *     summary: Get enrolled batches for current user with course details
- *     tags: [Enrollments]
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *     responses:
- *       200:
- *         description: List of enrolled batches with course details
- */
-router.get('/enrolled-batches', protect, allowStudentEnrollmentAccess, getUserEnrolledBatches);
 
 /**
  * @swagger
