@@ -550,7 +550,7 @@ exports.getUserEnrolledBatches = async (req, res, next) => {
     .limit(limit);
     
     const total = await Enrollment.countDocuments({ 
-      user: req.params.userId, 
+      user: req.user.id, 
       status: 'active' 
     });
     
