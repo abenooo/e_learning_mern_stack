@@ -391,16 +391,11 @@ router.patch(
 
 /**
  * @swagger
- * /enrollments/user/{userId}/enrolled-batches:
+ * /enrollments/enrolled-batches:
  *   get:
- *     summary: Get enrolled batches for a user with course details
+ *     summary: Get enrolled batches for current user with course details
  *     tags: [Enrollments]
  *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
  *       - in: query
  *         name: page
  *         schema:
@@ -415,7 +410,7 @@ router.patch(
  *       200:
  *         description: List of enrolled batches with course details
  */
-router.get('/user/:userId/enrolled-batches', protect, allowStudentEnrollmentAccess, getUserEnrolledBatches);
+router.get('/enrolled-batches', protect, allowStudentEnrollmentAccess, getUserEnrolledBatches);
 
 /**
  * @swagger
