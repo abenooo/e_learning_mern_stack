@@ -2,6 +2,9 @@ const express = require('express');
 const { check } = require('express-validator');
 const { protect, checkPermission } = require('../middleware/auth');
 
+require('../models/WeekComponent');
+require('../models/WeekComponentContent');
+
 const router = express.Router();
 
 // Import controllers
