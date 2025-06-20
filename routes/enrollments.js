@@ -368,7 +368,7 @@ router.get('/user/:userId', protect, checkPermission('enrollments', 'read'), get
  *       200:
  *         description: List of enrolled batches with course details
  */
-router.get('/enrolled-batches', protect, allowStudentEnrollmentAccess, getUserEnrolledBatches);
+router.get('/user/:userId/enrolled-batches', protect, getUserEnrolledBatches);
 
 router.get('/batch-course/:batchCourseId', protect, checkPermission('enrollments', 'read'), getBatchCourseEnrollments);
 
