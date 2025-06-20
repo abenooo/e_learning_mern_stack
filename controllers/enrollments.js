@@ -521,7 +521,7 @@ exports.updateEnrollmentProgress = async (req, res, next) => {
  */
 exports.getUserEnrolledBatches = async (req, res, next) => {
   try {
-    console.log(`Get enrolled batches request received for user ID: ${req.params.userId}`);
+    console.log(`Get enrolled batches request received for user ID: ${req.user.id}`);
     
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
@@ -529,7 +529,7 @@ exports.getUserEnrolledBatches = async (req, res, next) => {
     
     // Find active enrollments for the user
     const enrollments = await Enrollment.find({ 
-      user: req.params.userId, 
+      user: req.user.id, 
       status: 'active' 
     })
     .populate({
