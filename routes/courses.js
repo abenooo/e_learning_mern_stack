@@ -106,7 +106,7 @@ router.get('/:id', getCourse);
  *               title: { type: string, example: 'New Course Title' }
  *               description: { type: string, example: 'Description of the new course.' }
  *               course_icon_path: { type: string, format: binary, description: 'Image file for the course icon' }
- *               course_url_path: { type: string, format: binary, description: 'File for the course URL path' }
+ *               course_url_path: { type: string, example: 'new-course-title' }
  *               price: { type: number, format: float, example: 99.99 }
  *               difficulty_level: { type: string, enum: [beginner, intermediate, advanced], example: beginner }
  *               status: { type: string, enum: [draft, published, archived], example: draft }
@@ -118,6 +118,7 @@ router.get('/:id', getCourse);
  *               - title
  *               - description
  *               - duration_months
+ *               - course_url_path
  *     responses:
  *       201:
  *         description: Course created successfully
@@ -134,11 +135,11 @@ router.post(
     protect,
     checkPermission('courses', 'create'),
     uploadFields([
-      { name: 'course_icon_path', maxCount: 1 },
-      { name: 'course_url_path', maxCount: 1 }
+      { name: 'course_icon_path', maxCount: 1 }
     ]),
     check('title', 'Title is required').not().isEmpty(),
     check('description', 'Description is required').not().isEmpty(),
+    check('course_url_path', 'Course path is required').not().isEmpty(),
     check('duration_months', 'Duration is required').trim().isNumeric(),
     check('price', 'Price must be a number').optional().isNumeric(),
     check('difficulty_level', 'Invalid difficulty level')
@@ -178,7 +179,7 @@ router.post(
  *               title: { type: string, example: 'Updated Course Title' }
  *               description: { type: string, example: 'Updated description of the course.' }
  *               course_icon_path: { type: string, format: binary, description: 'New image file for the course icon (optional)' }
- *               course_url_path: { type: string, format: binary, description: 'New file for the course URL path (optional)' }
+ *               course_url_path: { type: string, example: 'updated-course-title' }
  *               price: { type: number, format: float, example: 129.99 }
  *               difficulty_level: { type: string, enum: [beginner, intermediate, advanced], example: advanced }
  *               status: { type: string, enum: [draft, published, archived], example: published }
@@ -204,11 +205,11 @@ router.put(
     protect,
     checkPermission('courses', 'update'),
     uploadFields([
-      { name: 'course_icon_path', maxCount: 1 },
-      { name: 'course_url_path', maxCount: 1 }
+      { name: 'course_icon_path', maxCount: 1 }
     ]),
     check('title', 'Title is required').optional().not().isEmpty(),
     check('description', 'Description is required').optional().not().isEmpty(),
+    check('course_url_path', 'Course path is required').optional().not().isEmpty(),
     check('duration_months', 'Duration must be a number').optional().trim().isNumeric(),
     check('price', 'Price must be a number').optional().isNumeric(),
     check('difficulty_level', 'Invalid difficulty level')
