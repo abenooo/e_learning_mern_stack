@@ -17,7 +17,10 @@ const CourseSchema = new mongoose.Schema({
     type: String
   },
   course_url_path: {
-    type: String
+    type: String,
+    required: [true, 'Course path is required'],
+    trim: true,
+    unique: true
   },
   payment_status: {
     type: String,
