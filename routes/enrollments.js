@@ -444,4 +444,31 @@ router.patch(
   updateEnrollmentProgress
 );
 
+/**
+ * @swagger
+ * /api/enrollments/course/{courseId}/phases:
+ *   get:
+ *     summary: Get phases for a specific enrolled course for the current user
+ *     tags: [Enrollments]
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of phases for the enrolled course
+ */
+router.get('/course/:courseId/phases', protect, getEnrolledCoursePhases);
+
+/**
+ * @swagger
+ * /api/enrollments/phase/{phaseId}/weeks:
+ *   get:
+ *     summary: Get weeks for a specific phase for the current user
+ *     tags: [Enrollments]
+ */
+router.get('/phase/:phaseId/weeks', protect, getPhaseWeeks);
+
 module.exports = router;
