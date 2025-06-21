@@ -116,8 +116,6 @@ const { upload, cloudinary } = require('../config/cloudinary'); // Import for im
  */
 const getPhases = async (req, res, next) => {
   try {
-    console.log('Get all phases request received');
-
     // Build query
     const query = {};
 
@@ -136,15 +134,15 @@ const getPhases = async (req, res, next) => {
     const sortOrder = req.query.order === 'desc' ? -1 : 1;
     const sort = { [sortField]: sortOrder };
 
-    // Execute query with pagination and populate course
+    // Execute query with pagination and populate course and creator
     const phases = await Phase.find(query)
       .populate({
-        path: 'course_id',
-        select: 'title description price duration_months difficulty_level status course_type delivery_method'
+        path: 'course',
+        select: '_id title description price duration_months difficulty_level status course_type delivery_method'
       })
       .populate({
         path: 'created_by',
-        select: 'name email'
+        select: '_id name email'
       })
       .sort(sort)
       .skip(startIndex)
@@ -153,37 +151,49 @@ const getPhases = async (req, res, next) => {
     // Get total count for pagination
     const total = await Phase.countDocuments(query);
 
-    console.log(`Found ${phases.length} phases out of ${total} total`);
-
-    // Transform the phases data to match the desired frontend format
-    const transformedPhases = phases.map(phase => ({
-      name: phase.phase_name,
-      path: phase.path || `/phase-${phase.phase_order}`,
-      brief_description: phase.brief_description || phase.phase_description,
-      full_description: phase.full_description || phase.phase_description,
-      icon: phase.icon || null,
-      hash: phase.hash || phase._id.toString().slice(-12),
-      has_access: true, // or your own logic
-      order: phase.phase_order,
-      course: phase.course_id
-        ? {
-            title: phase.course_id.title,
-            id: phase.course_id._id
-          }
-        : null
+    // Format the response to match course format
+    const formattedPhases = phases.map(phase => ({
+      _id: phase._id,
+      title: phase.phase_name,
+      description: phase.phase_description,
+      phase_icon_path: phase.phase_icon_path,
+      phase_url_path: phase.phase_url_path,
+      payment_status: phase.payment_status || 'pending',
+      price: phase.price || 0,
+      creator: {
+        _id: phase.created_by._id,
+        name: phase.created_by.name,
+        email: phase.created_by.email
+      },
+      difficulty_level: phase.difficulty_level || 'beginner',
+      status: phase.status || 'draft',
+      duration_months: phase.duration_months || 0,
+      course_type: phase.course_type || 'paid',
+      delivery_method: phase.delivery_method || 'online',
+      is_active: phase.is_active,
+      created_at: phase.created_at,
+      updated_at: phase.updated_at,
+      __v: phase.__v,
+      course: phase.course
     }));
 
     res.status(200).json({
       success: true,
-      message: "Phases retrieved successfully.",
-      data: {
-        phases: transformedPhases,
-        total: transformedPhases.length
-      }
+      count: formattedPhases.length,
+      pagination: {
+        page: page,
+        limit: limit,
+        total: total,
+        pages: Math.ceil(total / limit)
+      },
+      data: formattedPhases
     });
   } catch (error) {
     console.error('Get phases error:', error);
-    next(error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 };
 
@@ -218,28 +228,53 @@ const getPhases = async (req, res, next) => {
  */
 const getPhase = async (req, res, next) => {
   try {
-    console.log(`Get phase request received for ID: ${req.params.id}`);
-
     const phase = await Phase.findById(req.params.id)
-      .populate('course', 'title');
+      .populate('course', '_id title description price duration_months difficulty_level status course_type delivery_method')
+      .populate('created_by', '_id name email');
 
     if (!phase) {
-      console.log(`Phase not found with ID: ${req.params.id}`);
       return res.status(404).json({
         success: false,
         error: 'Phase not found'
       });
     }
 
-    console.log(`Found phase: ${phase.phase_name}`);
+    // Format the response to match course format
+    const formattedPhase = {
+      _id: phase._id,
+      title: phase.phase_name,
+      description: phase.phase_description,
+      phase_icon_path: phase.phase_icon_path,
+      phase_url_path: phase.phase_url_path,
+      payment_status: phase.payment_status || 'pending',
+      price: phase.price || 0,
+      creator: {
+        _id: phase.created_by._id,
+        name: phase.created_by.name,
+        email: phase.created_by.email
+      },
+      difficulty_level: phase.difficulty_level || 'beginner',
+      status: phase.status || 'draft',
+      duration_months: phase.duration_months || 0,
+      course_type: phase.course_type || 'paid',
+      delivery_method: phase.delivery_method || 'online',
+      is_active: phase.is_active,
+      created_at: phase.created_at,
+      updated_at: phase.updated_at,
+      __v: phase.__v,
+      course: phase.course
+    };
 
     res.status(200).json({
       success: true,
-      data: phase
+      data: formattedPhase
     });
   } catch (error) {
     console.error('Get phase error:', error);
-    next(error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 };
 
@@ -254,19 +289,18 @@ const getPhase = async (req, res, next) => {
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
- *               course: { type: string, description: 'Course ID' }
+ *               course_id: { type: string, description: 'Course ID' }
  *               phase_name: { type: string, description: 'Name of the phase' }
- *               phase_title: { type: string, description: 'Display title of the phase' }
- *               phase_url_path: { type: string, description: 'URL path for phase resources' }
- *               phase_description: { type: string, description: 'Description of the phase' }
- *               phase_icon_path: { type: string, description: 'URL of the phase icon' }
  *               phase_order: { type: integer, description: 'Order number of the phase' }
+ *               phase_description: { type: string, description: 'Description of the phase' }
+ *               phase_icon_path: { type: string, format: binary, description: 'Phase icon file' }
+ *               phase_url_path: { type: string, format: binary, description: 'Phase resources file' }
  *             required:
- *               - course
+ *               - course_id
  *               - phase_name
  *               - phase_order
  *     responses:
@@ -289,13 +323,16 @@ const getPhase = async (req, res, next) => {
  */
 const createPhase = async (req, res, next) => {
   try {
-    console.log('Create phase request received');
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      console.log('Validation errors:', errors.array());
+    // Validate required fields
+    const requiredFields = ['course_id', 'phase_name', 'phase_order'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+    
+    if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        errors: errors.array()
+        errors: [
+          { msg: `Missing required fields: ${missingFields.join(', ')}` }
+        ]
       });
     }
 
@@ -305,23 +342,37 @@ const createPhase = async (req, res, next) => {
     // Handle file uploads
     if (req.files) {
       if (req.files.phase_icon_path) {
-        req.body.phase_icon_path = req.files.phase_icon_path[0].path;
+        const result = await cloudinary.uploader.upload(req.files.phase_icon_path[0].path);
+        req.body.phase_icon_path = result.secure_url;
       }
       if (req.files.phase_url_path) {
-        req.body.phase_url_path = req.files.phase_url_path[0].path;
+        const result = await cloudinary.uploader.upload(req.files.phase_url_path[0].path);
+        req.body.phase_url_path = result.secure_url;
       }
     }
 
-    const phase = await Phase.create(req.body);
-    console.log(`Phase created with ID: ${phase._id}`);
+    // Set default values
+    const defaults = {
+      phase_title: req.body.phase_name,
+      phase_description: req.body.phase_name,
+      is_active: true
+    };
 
+    // Merge defaults with request body
+    req.body = { ...defaults, ...req.body };
+
+    const phase = await Phase.create(req.body);
+    
     res.status(201).json({
       success: true,
       data: phase
     });
   } catch (error) {
     console.error('Create phase error:', error);
-    next(error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 };
 
