@@ -214,6 +214,7 @@ const getCourse = async (req, res, next) => {
  *             properties:
  *               title: { type: string, example: 'New Course Title' }
  *               description: { type: string, example: 'Description of the new course.' }
+ *               icon: { type: string, format: url, example: 'http://example.com/icon.png' }
  *               course_icon_path: { type: string, format: url, example: 'http://example.com/icon.png' }
  *               course_url_path: { type: string, example: 'new-course-title' }
  *               price: { type: number, format: float, example: 99.99 }
@@ -329,6 +330,7 @@ const createCourse = async (req, res, next) => {
  *             properties:
  *               title: { type: string, example: 'Updated Course Title' }
  *               description: { type: string, example: 'Updated description of the course.' }
+ *               icon: { type: string, format: url, example: 'http://example.com/updated_icon.png' }
  *               course_icon_path: { type: string, format: url, example: 'http://example.com/updated_icon.png' }
  *               course_url_path: { type: string, example: 'updated-course-title' }
  *               price: { type: number, format: float, example: 129.99 }
