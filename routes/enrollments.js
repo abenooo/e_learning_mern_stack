@@ -159,6 +159,107 @@ router.get('/', protect, checkPermission('enrollments', 'read'), getEnrollments)
 
 /**
  * @swagger
+ * /enrollments/enrolled-batches:
+ *   get:
+ *     summary: Get enrolled batches for current user with course details
+ *     tags: [Enrollments]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: List of enrolled batches with course details
+ */
+router.get('/enrolled-batches', protect, getUserEnrolledBatches);
+
+/**
+ * @swagger
+ * /enrollments/user/{userId}:
+ *   get:
+ *     summary: Get all enrollments for a user
+ *     tags: [Enrollments]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, completed, dropped]
+ *     responses:
+ *       200:
+ *         description: List of user's enrollments
+ */
+router.get('/user/:userId', protect, checkPermission('enrollments', 'read'), getUserEnrollments);
+
+/**
+ * @swagger
+ * /enrollments/batch-course/{batchCourseId}:
+ *   get:
+ *     summary: Get all enrollments for a batch course
+ *     tags: [Enrollments]
+ *     parameters:
+ *       - in: path
+ *         name: batchCourseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, completed, dropped]
+ *     responses:
+ *       200:
+ *         description: List of batch course enrollments
+ */
+router.get('/batch-course/:batchCourseId', protect, checkPermission('enrollments', 'read'), getBatchCourseEnrollments);
+
+/**
+ * @swagger
+ * /enrollments/user/{userId}/course/{courseId}/phases:
+ *   get:
+ *     summary: Get phases for a specific enrolled course
+ *     tags: [Enrollments]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of phases for the enrolled course
+ */
+router.get('/user/:userId/course/:courseId/phases', protect, allowStudentEnrollmentAccess, getEnrolledCoursePhases);
+
+/**
+ * @swagger
+ * /enrollments/user/{userId}/phase/{phaseId}/weeks:
+ *   get:
+ *     summary: Get weeks for a specific phase
+ *     tags: [Enrollments]
+ */
+router.get('/user/:userId/phase/:phaseId/weeks', protect, allowStudentEnrollmentAccess, getPhaseWeeks);
+
+/**
+ * @swagger
  * /enrollments/{id}:
  *   get:
  *     summary: Get a single enrollment
@@ -305,75 +406,6 @@ router.delete('/:id', protect, checkPermission('enrollments', 'delete'), deleteE
 
 /**
  * @swagger
- * /enrollments/user/{userId}:
- *   get:
- *     summary: Get all enrollments for a user
- *     tags: [Enrollments]
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [active, completed, dropped]
- *     responses:
- *       200:
- *         description: List of user's enrollments
- */
-router.get('/user/:userId', protect, checkPermission('enrollments', 'read'), getUserEnrollments);
-
-/**
- * @swagger
- * /enrollments/batch-course/{batchCourseId}:
- *   get:
- *     summary: Get all enrollments for a batch course
- *     tags: [Enrollments]
- *     parameters:
- *       - in: path
- *         name: batchCourseId
- *         required: true
- *         schema:
- *           type: string
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [active, completed, dropped]
- *     responses:
- *       200:
- *         description: List of batch course enrollments
- */
-/**
- * @swagger
- * /enrollments/enrolled-batches:
- *   get:
- *     summary: Get enrolled batches for current user with course details
- *     tags: [Enrollments]
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *     responses:
- *       200:
- *         description: List of enrolled batches with course details
- */
-router.get('/enrolled-batches', protect, getUserEnrolledBatches);
-
-router.get('/batch-course/:batchCourseId', protect, checkPermission('enrollments', 'read'), getBatchCourseEnrollments);
-
-/**
- * @swagger
  * /enrollments/{id}/progress:
  *   patch:
  *     summary: Update enrollment progress
@@ -411,37 +443,5 @@ router.patch(
   ],
   updateEnrollmentProgress
 );
-
-/**
- * @swagger
- * /enrollments/user/{userId}/course/{courseId}/phases:
- *   get:
- *     summary: Get phases for a specific enrolled course
- *     tags: [Enrollments]
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: courseId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: List of phases for the enrolled course
- */
-router.get('/user/:userId/course/:courseId/phases', protect, allowStudentEnrollmentAccess, getEnrolledCoursePhases);
-
-/**
- * @swagger
- * /enrollments/user/{userId}/phase/{phaseId}/weeks:
- *   get:
- *     summary: Get weeks for a specific phase
- *     tags: [Enrollments]
- */
-router.get('/user/:userId/phase/:phaseId/weeks', protect, allowStudentEnrollmentAccess, getPhaseWeeks);
 
 module.exports = router;
