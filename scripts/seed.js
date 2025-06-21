@@ -488,6 +488,7 @@ const seedCourses = async (users) => {
     {
       title: 'Fullstack Web Application Development',
       description: 'Learn to build a Fullstack Web Application from the ground up, starting with the fundamentals and advancing to the deployment of an enterprise-scale application.',
+      icon: 'https://d3v4ckszie160z.cloudfront.net/assets/documents/fullstack-web-development/phase-icon/phase-1-icon-1735106482294.png',
       thumbnail: '/uploads/courses/fullstack-thumbnail.jpg',
       logo_url: '/uploads/courses/fullstack-logo.png',
       price: 1200,
@@ -502,6 +503,7 @@ const seedCourses = async (users) => {
     {
       title: 'React.js Advanced Development',
       description: 'Master React.js with advanced concepts including hooks, context, performance optimization, and state management.',
+      icon: 'https://d3v4ckszie160z.cloudfront.net/assets/documents/fullstack-web-development/phase-icon/phase-2-icon-1735106497204.png',
       thumbnail: '/uploads/courses/react-thumbnail.jpg',
       logo_url: '/uploads/courses/react-logo.png',
       price: 800,
@@ -516,6 +518,7 @@ const seedCourses = async (users) => {
     {
       title: 'Node.js Backend Development',
       description: 'Build scalable backend applications with Node.js, Express, and MongoDB. Learn RESTful APIs, authentication, and deployment.',
+      icon: 'https://d3v4ckszie160z.cloudfront.net/assets/documents/fullstack-web-development/phase-icon/phase-3-icon-1735106514405.png',
       thumbnail: '/uploads/courses/nodejs-thumbnail.jpg',
       logo_url: '/uploads/courses/nodejs-logo.png',
       price: 900,
@@ -530,6 +533,7 @@ const seedCourses = async (users) => {
     {
       title: 'Python Data Science',
       description: 'Learn data science with Python, including pandas, numpy, matplotlib, and machine learning fundamentals.',
+      icon: 'https://d3v4ckszie160z.cloudfront.net/assets/documents/fullstack-web-development/phase-icon/phase-4-icon-1735106526317.png',
       thumbnail: '/uploads/courses/python-thumbnail.jpg',
       logo_url: '/uploads/courses/python-logo.png',
       price: 1000,
