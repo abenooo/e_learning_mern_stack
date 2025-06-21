@@ -21,7 +21,7 @@ const PhaseSchema = new mongoose.Schema({
   created_by: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    // required: true
   },
   start_date: Date,
   end_date: Date,
