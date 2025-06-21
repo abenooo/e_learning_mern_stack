@@ -10,6 +10,9 @@ const CourseSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Course description is required']
   },
+  icon: {
+    type: String
+  },
   course_icon_path: {
     type: String
   },
