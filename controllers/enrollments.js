@@ -618,11 +618,14 @@ exports.getUserEnrolledBatches = async (req, res, next) => {
  */
 exports.getEnrolledCoursePhases = async (req, res, next) => {
   try {
-    console.log(`Get enrolled course phases request received for user ID: ${req.params.userId}, course ID: ${req.params.courseId}`);
+    const userId = req.user.id || req.params.userId;
+    const courseId = req.params.courseId;
+
+    console.log(`Get enrolled course phases request received for user ID: ${userId}, course ID: ${courseId}`);
     
     // First, get all active enrollments for the user
     const enrollments = await Enrollment.find({
-      user: req.params.userId,
+      user: userId,
       status: 'active'
     }).populate({
       path: 'batch_course',
@@ -639,7 +642,6 @@ exports.getEnrolledCoursePhases = async (req, res, next) => {
     }
     
     // Find the enrollment that matches the requested course
-    const requestedCourseId = req.params.courseId;
     let targetEnrollment = null;
     let targetCourse = null;
     
@@ -647,11 +649,11 @@ exports.getEnrolledCoursePhases = async (req, res, next) => {
       if (!enrollment.batch_course.course) continue;
       
       const course = enrollment.batch_course.course;
-      const courseId = course._id.toString();
-      const courseHash = courseId.slice(-16);
+      const currentCourseId = course._id.toString();
+      const courseHash = currentCourseId.slice(-16);
       
       // Check if the requested course ID matches either the full ID or the hash
-      if (courseId === requestedCourseId || courseHash === requestedCourseId) {
+      if (currentCourseId === courseId || courseHash === courseId) {
         targetEnrollment = enrollment;
         targetCourse = course;
         break;
