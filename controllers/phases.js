@@ -137,7 +137,7 @@ const getPhases = async (req, res, next) => {
     // Execute query with pagination and populate course and creator
     const phases = await Phase.find(query)
       .populate({
-        path: 'course',
+        path: 'course_id',
         select: '_id title description price duration_months difficulty_level status course_type delivery_method'
       })
       .populate({
@@ -174,7 +174,7 @@ const getPhases = async (req, res, next) => {
       created_at: phase.created_at,
       updated_at: phase.updated_at,
       __v: phase.__v,
-      course: phase.course
+      course: phase.course_id
     }));
 
     res.status(200).json({
@@ -229,7 +229,7 @@ const getPhases = async (req, res, next) => {
 const getPhase = async (req, res, next) => {
   try {
     const phase = await Phase.findById(req.params.id)
-      .populate('course', '_id title description price duration_months difficulty_level status course_type delivery_method')
+      .populate('course_id', '_id title description price duration_months difficulty_level status course_type delivery_method')
       .populate('created_by', '_id name email');
 
     if (!phase) {
@@ -262,7 +262,7 @@ const getPhase = async (req, res, next) => {
       created_at: phase.created_at,
       updated_at: phase.updated_at,
       __v: phase.__v,
-      course: phase.course
+      course: phase.course_id
     };
 
     res.status(200).json({
