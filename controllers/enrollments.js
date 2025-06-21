@@ -715,11 +715,14 @@ exports.getEnrolledCoursePhases = async (req, res, next) => {
  */
 exports.getPhaseWeeks = async (req, res, next) => {
   try {
-    console.log(`Get phase weeks request received for user ID: ${req.params.userId}, phase ID: ${req.params.phaseId}`);
+    const userId = req.user.id || req.params.userId;
+    const phaseId = req.params.phaseId;
+
+    console.log(`Get phase weeks request received for user ID: ${userId}, phase ID: ${phaseId}`);
 
     // 1. Verify user is enrolled in a course that contains this phase
     const enrollments = await Enrollment.find({
-      user: req.params.userId,
+      user: userId,
       status: 'active'
     }).populate({
       path: 'batch_course',
@@ -735,7 +738,7 @@ exports.getPhaseWeeks = async (req, res, next) => {
 
     // 2. Get the phase and verify it belongs to an enrolled course
     const Phase = require('../models/Phase');
-    const phase = await Phase.findById(req.params.phaseId).populate('course_id');
+    const phase = await Phase.findById(phaseId).populate('course_id');
     if (!phase) {
       return res.status(404).json({
         success: false,
@@ -755,7 +758,7 @@ exports.getPhaseWeeks = async (req, res, next) => {
 
     // 3. Deeply populate weeks and all nested children
     const Week = require('../models/Week');
-    const weeks = await Week.find({ phase_id: req.params.phaseId })
+    const weeks = await Week.find({ phase_id: phaseId })
       .sort({ week_order: 1 })
       .populate({
         path: 'week_components',
