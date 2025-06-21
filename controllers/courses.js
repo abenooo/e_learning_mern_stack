@@ -263,13 +263,8 @@ const createCourse = async (req, res, next) => {
     req.body.creator = req.user.id;
     
     // Handle file uploads
-    if (req.files) {
-      if (req.files.course_icon_path) {
-        req.body.course_icon_path = req.files.course_icon_path[0].path;
-      }
-      if (req.files.course_url_path) {
-        req.body.course_url_path = req.files.course_url_path[0].path;
-      }
+    if (req.files && req.files.course_icon_path) {
+      req.body.course_icon_path = req.files.course_icon_path[0].path;
     }
     
     // Set default values if not provided
@@ -385,13 +380,8 @@ const updateCourse = async (req, res, next) => {
     }
     
     // Handle file uploads for course_icon_path and course_url_path
-    if (req.files) {
-      if (req.files.course_icon_path) {
-        req.body.course_icon_path = req.files.course_icon_path[0].path;
-      }
-      if (req.files.course_url_path) {
-        req.body.course_url_path = req.files.course_url_path[0].path;
-      }
+    if (req.files && req.files.course_icon_path) {
+      req.body.course_icon_path = req.files.course_icon_path[0].path;
     }
 
     // Update course
